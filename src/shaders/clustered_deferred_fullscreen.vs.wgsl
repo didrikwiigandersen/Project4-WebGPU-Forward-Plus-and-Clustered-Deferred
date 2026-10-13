@@ -1,3 +1,13 @@
-// TODO-3: implement the Clustered Deferred fullscreen vertex shader
+const fullscreenPositions = array<vec2f, 6>(
+    vec2f(-1.0, -1.0),
+    vec2f( 1.0, -1.0),
+    vec2f(-1.0,  1.0),
+    vec2f(-1.0,  1.0),
+    vec2f( 1.0, -1.0),
+    vec2f( 1.0,  1.0),
+);
 
-// This shader should be very simple as it does not need all of the information passed by the the naive vertex shader.
+@vertex
+fn main(@builtin(vertex_index) vertexIndex: u32) -> @builtin(position) vec4f {
+    return vec4f(fullscreenPositions[vertexIndex], 0.0, 1.0);
+}

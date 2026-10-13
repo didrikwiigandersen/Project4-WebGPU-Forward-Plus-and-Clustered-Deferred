@@ -1,23 +1,63 @@
-// TODO-2: implement the light clustering compute shader
+struct ClusterAabb {
+    min: vec4f,
+    max: vec4f,
+}
 
-// ------------------------------------
-// Calculating cluster bounds:
-// ------------------------------------
-// For each cluster (X, Y, Z):
-//     - Calculate the screen-space bounds for this cluster in 2D (XY).
-//     - Calculate the depth bounds for this cluster in Z (near and far planes).
-//     - Convert these screen and depth bounds into view-space coordinates.
-//     - Store the computed bounding box (AABB) for the cluster.
+@group(0) @binding(0) var<storage, read> worldLightSet: LightSet;
+@group(0) @binding(1) var<uniform> camera: CameraUniforms;
+@group(0) @binding(2) var<storage, read> viewLightPositions: array<vec4f>;
+@group(0) @binding(3) var<storage, read> clusterBounds: array<ClusterAabb>;
+@group(0) @binding(4) var<storage, read> activeClusters: array<u32>;
+@group(0) @binding(5) var<storage, read_write> clusterSet: ClusterSet;
 
-// ------------------------------------
-// Assigning lights to clusters:
-// ------------------------------------
-// For each cluster:
-//     - Initialize a counter for the number of lights in this cluster.
+var<workgroup> hitCount: atomic<u32>;
+var<workgroup> clusterIsActive: u32;
 
-//     For each light:
-//         - Check if the light intersects with the cluster’s bounding box (AABB).
-//         - If it does, add the light to the cluster's light list.
-//         - Stop adding lights if the maximum number of lights is reached.
+fn sphereIntersectsAabb(center: vec3f, radius: f32, bounds: ClusterAabb) -> bool {
+    let closestPoint = clamp(center, bounds.min.xyz, bounds.max.xyz);
+    let offset = center - closestPoint;
+    return dot(offset, offset) <= radius * radius;
+}
 
-//     - Store the number of lights assigned to this cluster.
+@compute
+@workgroup_size(64)
+fn main(
+    @builtin(workgroup_id) workgroupId: vec3u,
+    @builtin(local_invocation_index) lane: u32,
+) {
+    let clusterIndex = workgroupId.x;
+
+    if (lane == 0u) {
+        atomicStore(&hitCount, 0u);
+        clusterIsActive = activeClusters[clusterIndex];
+        clusterSet.clusters[clusterIndex].count = 0u;
+        clusterSet.clusters[clusterIndex].overflow = 0u;
+    }
+    workgroupBarrier();
+
+    // The mask only guards intersection work. Every invocation reaches both
+    // barriers, and lane zero clears inactive records every frame.
+    if (clusterIsActive != 0u) {
+        let bounds = clusterBounds[clusterIndex];
+        let availableLights = arrayLength(&worldLightSet.lights);
+        let lightCount = min(worldLightSet.numLights, availableLights);
+        let radius = f32(${lightRadius});
+
+        for (var lightIndex = lane; lightIndex < lightCount; lightIndex += 64u) {
+            let center = viewLightPositions[lightIndex].xyz;
+            if (sphereIntersectsAabb(center, radius, bounds)) {
+                let destination = atomicAdd(&hitCount, 1u);
+                if (destination < 256u) {
+                    clusterSet.clusters[clusterIndex].indices[destination] = lightIndex;
+                }
+            }
+        }
+    }
+    workgroupBarrier();
+
+    if (lane == 0u) {
+        let totalHitCount = atomicLoad(&hitCount);
+        clusterSet.clusters[clusterIndex].count = min(totalHitCount, 256u);
+        clusterSet.clusters[clusterIndex].overflow = select(0u, 1u, totalHitCount > 256u);
+    }
+}

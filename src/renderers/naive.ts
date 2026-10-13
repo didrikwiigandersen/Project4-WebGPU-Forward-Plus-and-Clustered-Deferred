@@ -1,124 +1,166 @@
 import * as renderer from '../renderer';
 import * as shaders from '../shaders/shaders';
+import { profiler } from '../profiler';
+import { settings } from '../settings';
 import { Stage } from '../stage/stage';
+import { createGeometryBundle, drawGeometry } from './geometry';
+
+const depthFormat: GPUTextureFormat = 'depth24plus';
 
 export class NaiveRenderer extends renderer.Renderer {
     sceneUniformsBindGroupLayout: GPUBindGroupLayout;
-    sceneUniformsBindGroup: GPUBindGroup;
+    sceneUniformsBindGroup!: GPUBindGroup;
 
-    depthTexture: GPUTexture;
-    depthTextureView: GPUTextureView;
+    depthTexture!: GPUTexture;
+    depthTextureView!: GPUTextureView;
 
     pipeline: GPURenderPipeline;
 
+    private boundClusterBuffer?: GPUBuffer;
+    private geometryBundle?: GPURenderBundle;
+
     constructor(stage: Stage) {
         super(stage);
+        this.lights.ensureClusterResources();
 
+        // Keep group 0 ABI-compatible with every geometry renderer. The naive
+        // fragment shader does not read clusters, but retaining binding 2 makes
+        // renderer switches and validation use one unambiguous scene contract.
         this.sceneUniformsBindGroupLayout = renderer.device.createBindGroupLayout({
-            label: "scene uniforms bind group layout",
+            label: 'Naive scene bind group layout',
             entries: [
-                // TODO-1.2: add an entry for camera uniforms at binding 0, visible to only the vertex shader, and of type "uniform"
-                { // lightSet
-                    binding: 1,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    buffer: { type: "read-only-storage" }
-                }
-            ]
-        });
-
-        this.sceneUniformsBindGroup = renderer.device.createBindGroup({
-            label: "scene uniforms bind group",
-            layout: this.sceneUniformsBindGroupLayout,
-            entries: [
-                // TODO-1.2: add an entry for camera uniforms at binding 0
-                // you can access the camera using `this.camera`
-                // if you run into TypeScript errors, you're probably trying to upload the host buffer instead
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                    buffer: { type: 'uniform' },
+                },
                 {
                     binding: 1,
-                    resource: { buffer: this.lights.lightSetStorageBuffer }
-                }
-            ]
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: { type: 'read-only-storage' },
+                },
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: { type: 'read-only-storage' },
+                },
+            ],
         });
-
-        this.depthTexture = renderer.device.createTexture({
-            size: [renderer.canvas.width, renderer.canvas.height],
-            format: "depth24plus",
-            usage: GPUTextureUsage.RENDER_ATTACHMENT
-        });
-        this.depthTextureView = this.depthTexture.createView();
 
         this.pipeline = renderer.device.createRenderPipeline({
+            label: 'Naive pipeline',
             layout: renderer.device.createPipelineLayout({
-                label: "naive pipeline layout",
+                label: 'Naive pipeline layout',
                 bindGroupLayouts: [
                     this.sceneUniformsBindGroupLayout,
                     renderer.modelBindGroupLayout,
-                    renderer.materialBindGroupLayout
-                ]
+                    renderer.materialBindGroupLayout,
+                ],
             }),
             depthStencil: {
                 depthWriteEnabled: true,
-                depthCompare: "less",
-                format: "depth24plus"
+                depthCompare: 'less',
+                format: depthFormat,
             },
             vertex: {
                 module: renderer.device.createShaderModule({
-                    label: "naive vert shader",
-                    code: shaders.naiveVertSrc
+                    label: 'Naive vertex shader',
+                    code: shaders.naiveVertSrc,
                 }),
-                buffers: [ renderer.vertexBufferLayout ]
+                entryPoint: 'main',
+                buffers: [renderer.vertexBufferLayout],
             },
             fragment: {
                 module: renderer.device.createShaderModule({
-                    label: "naive frag shader",
+                    label: 'Naive fragment shader',
                     code: shaders.naiveFragSrc,
                 }),
-                targets: [
-                    {
-                        format: renderer.canvasFormat,
-                    }
-                ]
-            }
+                entryPoint: 'main',
+                targets: [{ format: 'rgba16float' }],
+            },
         });
+
+        this.recreateDepthTexture();
+        this.ensureSceneResources();
     }
 
-    override draw() {
-        const encoder = renderer.device.createCommandEncoder();
-        const canvasTextureView = renderer.context.getCurrentTexture().createView();
+    private ensureSceneResources(): void {
+        this.lights.ensureClusterResources();
+        const clusterBuffer = this.lights.clustersBuffer;
+        if (this.boundClusterBuffer === clusterBuffer) {
+            return;
+        }
 
-        const renderPass = encoder.beginRenderPass({
-            label: "naive render pass",
-            colorAttachments: [
-                {
-                    view: canvasTextureView,
-                    clearValue: [0, 0, 0, 0],
-                    loadOp: "clear",
-                    storeOp: "store"
-                }
+        this.boundClusterBuffer = clusterBuffer;
+        this.sceneUniformsBindGroup = renderer.device.createBindGroup({
+            label: 'Naive scene bind group',
+            layout: this.sceneUniformsBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: this.camera.uniformsBuffer } },
+                { binding: 1, resource: { buffer: this.lights.lightSetStorageBuffer } },
+                { binding: 2, resource: { buffer: clusterBuffer } },
             ],
+        });
+        this.geometryBundle = createGeometryBundle(
+            this.scene,
+            this.pipeline,
+            this.sceneUniformsBindGroup,
+            ['rgba16float'],
+            depthFormat,
+        );
+    }
+
+    private recreateDepthTexture(): void {
+        this.depthTexture?.destroy();
+        this.depthTexture = renderer.device.createTexture({
+            label: 'Naive depth',
+            size: [renderer.canvas.width, renderer.canvas.height],
+            format: depthFormat,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        });
+        this.depthTextureView = this.depthTexture.createView();
+    }
+
+    protected override draw(): void {
+        this.ensureSceneResources();
+
+        const encoder = renderer.device.createCommandEncoder({ label: 'Naive frame' });
+        const renderPass = encoder.beginRenderPass({
+            label: 'Naive geometry',
+            timestampWrites: profiler.pass('Naive geometry'),
+            colorAttachments: [{
+                view: this.outputView,
+                clearValue: [0, 0, 0, 1],
+                loadOp: 'clear',
+                storeOp: 'store',
+            }],
             depthStencilAttachment: {
                 view: this.depthTextureView,
                 depthClearValue: 1.0,
-                depthLoadOp: "clear",
-                depthStoreOp: "store"
-            }
-        });
-        renderPass.setPipeline(this.pipeline);
-
-        // TODO-1.2: bind `this.sceneUniformsBindGroup` to index `shaders.constants.bindGroup_scene`
-
-        this.scene.iterate(node => {
-            renderPass.setBindGroup(shaders.constants.bindGroup_model, node.modelBindGroup);
-        }, material => {
-            renderPass.setBindGroup(shaders.constants.bindGroup_material, material.materialBindGroup);
-        }, primitive => {
-            renderPass.setVertexBuffer(0, primitive.vertexBuffer);
-            renderPass.setIndexBuffer(primitive.indexBuffer, 'uint32');
-            renderPass.drawIndexed(primitive.numIndices);
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store',
+            },
         });
 
+        if (settings.bundles) {
+            renderPass.executeBundles([this.geometryBundle!]);
+        } else {
+            renderPass.setPipeline(this.pipeline);
+            renderPass.setBindGroup(shaders.constants.bindGroup_scene, this.sceneUniformsBindGroup);
+            drawGeometry(renderPass, this.scene);
+        }
         renderPass.end();
 
-        renderer.device.queue.submit([encoder.finish()]);
+        this.finishFrame(encoder);
+    }
+
+    protected override onResize(): void {
+        this.recreateDepthTexture();
+    }
+
+    protected override onDispose(): void {
+        this.depthTexture.destroy();
+        this.geometryBundle = undefined;
+        this.boundClusterBuffer = undefined;
     }
 }

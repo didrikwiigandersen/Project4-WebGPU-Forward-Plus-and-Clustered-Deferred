@@ -1,16 +1,134 @@
-// TODO-2: implement the Forward+ fragment shader
+@group(${bindGroup_scene}) @binding(0) var<uniform> camera: CameraUniforms;
+@group(${bindGroup_scene}) @binding(1) var<storage, read> lightSet: LightSet;
+@group(${bindGroup_scene}) @binding(2) var<storage, read> clusterSet: ClusterSet;
 
-// See naive.fs.wgsl for basic fragment shader setup; this shader should use light clusters instead of looping over all lights
+struct ForwardDebugUniforms {
+    mode: u32,
+    padding0: u32,
+    padding1: u32,
+    padding2: u32,
+}
 
-// ------------------------------------
-// Shading process:
-// ------------------------------------
-// Determine which cluster contains the current fragment.
-// Retrieve the number of lights that affect the current fragment from the cluster’s data.
-// Initialize a variable to accumulate the total light contribution for the fragment.
-// For each light in the cluster:
-//     Access the light's properties using its index.
-//     Calculate the contribution of the light based on its position, the fragment’s position, and the surface normal.
-//     Add the calculated contribution to the total light accumulation.
-// Multiply the fragment’s diffuse color by the accumulated light contribution.
-// Return the final color, ensuring that the alpha component is set appropriately (typically to 1).
+@group(${bindGroup_scene}) @binding(3) var<uniform> forwardDebug: ForwardDebugUniforms;
+
+@group(${bindGroup_material}) @binding(0) var diffuseTex: texture_2d<f32>;
+@group(${bindGroup_material}) @binding(1) var diffuseTexSampler: sampler;
+
+struct FragmentInput {
+    @builtin(position) fragPos: vec4f,
+    @location(0) pos: vec3f,
+    @location(1) nor: vec3f,
+    @location(2) uv: vec2f
+}
+
+fn forwardClusterCoordinates(clusterIndex: u32) -> vec3u {
+    let dimensions = max(camera.clusterDims.xyz, vec3u(1u));
+    let clustersPerSlice = dimensions.x * dimensions.y;
+    let clusterZ = clusterIndex / clustersPerSlice;
+    let indexWithinSlice = clusterIndex - clusterZ * clustersPerSlice;
+    let clusterY = indexWithinSlice / dimensions.x;
+    let clusterX = indexWithinSlice - clusterY * dimensions.x;
+    return vec3u(clusterX, clusterY, clusterZ);
+}
+
+fn forwardClusterCoordinateColor(clusterIndex: u32) -> vec3f {
+    let dimensions = max(camera.clusterDims.xyz, vec3u(1u));
+    let coordinates = forwardClusterCoordinates(clusterIndex);
+    return (vec3f(coordinates) + vec3f(0.5f)) / vec3f(dimensions);
+}
+
+fn forwardClusterHashColor(clusterIndex: u32) -> vec3f {
+    let value = f32(clusterIndex);
+    return fract(vec3f(
+        value * 0.1031f + 0.17f,
+        value * 0.11369f + 0.43f,
+        value * 0.13787f + 0.71f
+    ));
+}
+
+fn forwardLightCountHeat(lightCount: u32) -> vec3f {
+    let amount = clamp(f32(lightCount) / 256.0f, 0.0f, 1.0f);
+    return vec3f(
+        clamp(3.0f * amount - 1.0f, 0.0f, 1.0f),
+        clamp(1.5f - abs(3.0f * amount - 1.5f), 0.0f, 1.0f),
+        clamp(1.0f - 3.0f * amount, 0.0f, 1.0f)
+    );
+}
+
+@fragment
+fn main(in: FragmentInput) -> @location(0) vec4f {
+    let diffuseColor = textureSample(diffuseTex, diffuseTexSampler, in.uv);
+    if (diffuseColor.a < 0.5f) {
+        discard;
+    }
+
+    let debugMode = forwardDebug.mode;
+    if (debugMode == 4u) {
+        return vec4f(diffuseColor.rgb, 1.0f);
+    }
+    if (debugMode == 5u) {
+        return vec4f(safeNormalize(in.nor) * 0.5f + vec3f(0.5f), 1.0f);
+    }
+    if (debugMode == 6u) {
+        let viewPosition = reconstructViewPosition(camera, in.fragPos.xy, in.fragPos.z);
+        let viewDepth = clamp(-viewPosition.z, camera.depth.x, camera.depth.y);
+        let logarithmicDepth = clamp(
+            (log(viewDepth) * camera.depth.z + camera.depth.w)
+                / f32(max(camera.clusterDims.z, 1u)),
+            0.0f,
+            1.0f
+        );
+        return vec4f(vec3f(logarithmicDepth), 1.0f);
+    }
+
+    // The exact same helper is used by the active-cluster marker, so pixels on
+    // logarithmic slice boundaries cannot disagree with light clustering.
+    let clusterIndex = clusterIndexFromPixelDepth(camera, in.fragPos.xy, in.fragPos.z);
+    if (debugMode == 1u) {
+        return vec4f(forwardClusterCoordinateColor(clusterIndex), 1.0f);
+    }
+
+    if (debugMode == 2u || debugMode == 3u) {
+        let clusterCount = arrayLength(&clusterSet.clusters);
+        if (clusterCount == 0u) {
+            return vec4f(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+        let safeClusterIndex = min(clusterIndex, clusterCount - 1u);
+        let lightCount = min(clusterSet.clusters[safeClusterIndex].count, 256u);
+        if (debugMode == 2u) {
+            return vec4f(forwardLightCountHeat(lightCount), 1.0f);
+        }
+
+        let overflow = clusterSet.clusters[safeClusterIndex].overflow != 0u;
+        let countAmount = f32(lightCount) / 256.0f;
+        let statusColor = select(
+            vec3f(0.0f, max(0.12f, countAmount), 0.0f),
+            vec3f(1.0f, countAmount * 0.25f, 0.0f),
+            overflow
+        );
+        return vec4f(statusColor, 1.0f);
+    }
+
+    if (debugMode == 8u) {
+        // Every surviving fragment represents occupied geometry. In culling
+        // mode the marker therefore set this fragment's cluster active; in the
+        // other depth modes this deterministic color shows the same occupancy.
+        let activeColor = clamp(
+            forwardClusterHashColor(clusterIndex) * 0.35f + vec3f(0.05f, 0.60f, 0.05f),
+            vec3f(0.0f),
+            vec3f(1.0f)
+        );
+        return vec4f(activeColor, 1.0f);
+    }
+
+    // Debug mode 7 is bloom, which is intentionally handled by PostProcessing.
+    let lightContribution = shadeCluster(
+        &lightSet,
+        &clusterSet,
+        clusterIndex,
+        in.pos,
+        safeNormalize(in.nor)
+    );
+    let color = clamp(diffuseColor.rgb * lightContribution, vec3f(0.0f), vec3f(65504.0f));
+    return vec4f(color, 1.0f);
+}

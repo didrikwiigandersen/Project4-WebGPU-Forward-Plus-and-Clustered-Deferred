@@ -18,12 +18,7 @@ fn main(in: FragmentInput) -> @location(0) vec4f
         discard;
     }
 
-    var totalLightContrib = vec3f(0, 0, 0);
-    for (var lightIdx = 0u; lightIdx < lightSet.numLights; lightIdx++) {
-        let light = lightSet.lights[lightIdx];
-        totalLightContrib += calculateLightContrib(light, in.pos, normalize(in.nor));
-    }
-
-    var finalColor = diffuseColor.rgb * totalLightContrib;
-    return vec4(finalColor, 1);
+    let totalLightContrib = shadeAllLights(&lightSet, in.pos, safeNormalize(in.nor));
+    let finalColor = clamp(diffuseColor.rgb * totalLightContrib, vec3f(0.0f), vec3f(65504.0f));
+    return vec4f(finalColor, 1.0f);
 }

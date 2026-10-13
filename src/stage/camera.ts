@@ -1,83 +1,171 @@
 import { Mat4, mat4, Vec3, vec3 } from "wgpu-matrix";
 import { toRadians } from "../math_util";
-import { device, canvas, fovYDegrees, aspectRatio } from "../renderer";
+import { device, canvas, fovYDegrees } from "../renderer";
+import { clusterDimensions } from "../settings";
 
-class CameraUniforms {
-    readonly buffer = new ArrayBuffer(16 * 4);
+/**
+ * CPU mirror of the CameraUniforms WGSL struct.
+ *
+ * Matrix columns and vec4 values are all naturally 16-byte aligned, giving the
+ * buffer the following fixed layout:
+ *
+ *   0   viewProjMat
+ *   64  viewMat
+ *   128 invProjMat
+ *   192 invViewProjMat
+ *   256 viewport
+ *   272 depth
+ *   288 clusterDims
+ */
+export class CameraUniforms {
+    static readonly byteLength = 304;
+
+    readonly buffer = new ArrayBuffer(CameraUniforms.byteLength);
     private readonly floatView = new Float32Array(this.buffer);
+    private readonly uintView = new Uint32Array(this.buffer);
 
-    set viewProjMat(mat: Float32Array) {
-        // TODO-1.1: set the first 16 elements of `this.floatView` to the input `mat`
+    set viewProjMat(mat: Mat4) {
+        this.floatView.set(mat, 0);
     }
 
-    // TODO-2: add extra functions to set values needed for light clustering here
+    set viewMat(mat: Mat4) {
+        this.floatView.set(mat, 16);
+    }
+
+    set invProjMat(mat: Mat4) {
+        this.floatView.set(mat, 32);
+    }
+
+    set invViewProjMat(mat: Mat4) {
+        this.floatView.set(mat, 48);
+    }
+
+    set viewport(value: readonly [number, number, number, number]) {
+        this.floatView.set(value, 64);
+    }
+
+    set depth(value: readonly [number, number, number, number]) {
+        this.floatView.set(value, 68);
+    }
+
+    set clusterDims(value: readonly [number, number, number, number]) {
+        this.uintView.set(value, 72);
+    }
 }
 
 export class Camera {
-    uniforms: CameraUniforms = new CameraUniforms();
-    uniformsBuffer: GPUBuffer;
+    readonly uniforms = new CameraUniforms();
+    readonly uniformsBuffer: GPUBuffer;
 
     projMat: Mat4 = mat4.create();
+    viewMat: Mat4 = mat4.create();
+    invProjMat: Mat4 = mat4.create();
+    invViewProjMat: Mat4 = mat4.create();
+
     cameraPos: Vec3 = vec3.create(-7, 2, 0);
     cameraFront: Vec3 = vec3.create(0, 0, -1);
     cameraUp: Vec3 = vec3.create(0, 1, 0);
     cameraRight: Vec3 = vec3.create(1, 0, 0);
-    yaw: number = 0;
-    pitch: number = 0;
-    moveSpeed: number = 0.004;
-    sensitivity: number = 0.15;
+    yaw = 0;
+    pitch = 0;
+    moveSpeed = 0.004;
+    sensitivity = 0.15;
 
     static readonly nearPlane = 0.1;
     static readonly farPlane = 1000;
 
     keys: { [key: string]: boolean } = {};
 
-    constructor () {
-        // TODO-1.1: set `this.uniformsBuffer` to a new buffer of size `this.uniforms.buffer.byteLength`
-        // ensure the usage is set to `GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST` since we will be copying to this buffer
-        // check `lights.ts` for examples of using `device.createBuffer()`
-        //
-        // note that you can add more variables (e.g. inverse proj matrix) to this buffer in later parts of the assignment
+    private viewportWidth = 1;
+    private viewportHeight = 1;
+    private disposed = false;
 
-        this.projMat = mat4.perspective(toRadians(fovYDegrees), aspectRatio, Camera.nearPlane, Camera.farPlane);
+    private readonly keyDownListener = (event: KeyboardEvent) => this.onKeyEvent(event, true);
+    private readonly keyUpListener = (event: KeyboardEvent) => this.onKeyEvent(event, false);
+    private readonly blurListener = () => {
+        this.keys = {};
+    };
+    private readonly mouseDownListener = (event: MouseEvent) => {
+        if (event.button === 0) {
+            void canvas.requestPointerLock();
+        }
+    };
+    private readonly mouseUpListener = (event: MouseEvent) => {
+        if (event.button === 0 && document.pointerLockElement === canvas) {
+            document.exitPointerLock();
+        }
+    };
+    private readonly mouseMoveListener = (event: MouseEvent) => this.onMouseMove(event);
 
-        this.rotateCamera(0, 0); // set initial camera vectors
+    constructor() {
+        this.uniformsBuffer = device.createBuffer({
+            label: "camera uniforms",
+            size: this.uniforms.buffer.byteLength,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
 
-        window.addEventListener('keydown', (event) => this.onKeyEvent(event, true));
-        window.addEventListener('keyup', (event) => this.onKeyEvent(event, false));
-        window.onblur = () => this.keys = {}; // reset keys on page exit so they don't get stuck (e.g. on alt + tab)
+        this.updateCameraVectors();
 
-        canvas.addEventListener('mousedown', () => canvas.requestPointerLock());
-        canvas.addEventListener('mouseup', () => document.exitPointerLock());
-        canvas.addEventListener('mousemove', (event) => this.onMouseMove(event));
+        window.addEventListener("keydown", this.keyDownListener);
+        window.addEventListener("keyup", this.keyUpListener);
+        window.addEventListener("blur", this.blurListener);
+        canvas.addEventListener("mousedown", this.mouseDownListener);
+        canvas.addEventListener("mouseup", this.mouseUpListener);
+        canvas.addEventListener("mousemove", this.mouseMoveListener);
+
+        // Populate and upload every field before any renderer can bind this camera.
+        this.resize(canvas.width, canvas.height);
+    }
+
+    private static isEditableTarget(target: EventTarget | null): boolean {
+        const element = target as HTMLElement | null;
+        if (!element) {
+            return false;
+        }
+
+        const tagName = element.tagName?.toLowerCase();
+        return element.isContentEditable
+            || tagName === "input"
+            || tagName === "textarea"
+            || tagName === "select";
     }
 
     private onKeyEvent(event: KeyboardEvent, down: boolean) {
-        this.keys[event.key.toLowerCase()] = down;
-        if (this.keys['alt']) { // prevent issues from alt shortcuts
+        const key = event.key.toLowerCase();
+        if (Camera.isEditableTarget(event.target)) {
+            // A key may have been pressed before an input received focus. Always
+            // accept its release so movement cannot remain latched on.
+            if (!down) {
+                this.keys[key] = false;
+            }
+            return;
+        }
+
+        this.keys[key] = down;
+        if (key === "alt" || this.keys["alt"]) {
+            // Prevent browser menu shortcuts from stealing a movement key-up.
             event.preventDefault();
         }
     }
 
-    private rotateCamera(dx: number, dy: number) {
-        this.yaw += dx;
-        this.pitch -= dy;
+    private updateCameraVectors() {
+        const yawRadians = toRadians(this.yaw);
+        const pitchRadians = toRadians(this.pitch);
+        const cosPitch = Math.cos(pitchRadians);
 
-        if (this.pitch > 89) {
-            this.pitch = 89;
-        }
-        if (this.pitch < -89) {
-            this.pitch = -89;
-        }
-
-        const front = mat4.create();
-        front[0] = Math.cos(toRadians(this.yaw)) * Math.cos(toRadians(this.pitch));
-        front[1] = Math.sin(toRadians(this.pitch));
-        front[2] = Math.sin(toRadians(this.yaw)) * Math.cos(toRadians(this.pitch));
-
-        this.cameraFront = vec3.normalize(front);
+        this.cameraFront = vec3.normalize(vec3.create(
+            Math.cos(yawRadians) * cosPitch,
+            Math.sin(pitchRadians),
+            Math.sin(yawRadians) * cosPitch,
+        ));
         this.cameraRight = vec3.normalize(vec3.cross(this.cameraFront, [0, 1, 0]));
         this.cameraUp = vec3.normalize(vec3.cross(this.cameraRight, this.cameraFront));
+    }
+
+    private rotateCamera(dx: number, dy: number) {
+        this.yaw += dx;
+        this.pitch = Math.max(-89, Math.min(89, this.pitch - dy));
+        this.updateCameraVectors();
     }
 
     private onMouseMove(event: MouseEvent) {
@@ -87,32 +175,36 @@ export class Camera {
     }
 
     private processInput(deltaTime: number) {
+        if (Camera.isEditableTarget(document.activeElement)) {
+            return;
+        }
+
         let moveDir = vec3.create(0, 0, 0);
-        if (this.keys['w']) {
+        if (this.keys["w"]) {
             moveDir = vec3.add(moveDir, this.cameraFront);
         }
-        if (this.keys['s']) {
+        if (this.keys["s"]) {
             moveDir = vec3.sub(moveDir, this.cameraFront);
         }
-        if (this.keys['a']) {
+        if (this.keys["a"]) {
             moveDir = vec3.sub(moveDir, this.cameraRight);
         }
-        if (this.keys['d']) {
+        if (this.keys["d"]) {
             moveDir = vec3.add(moveDir, this.cameraRight);
         }
-        if (this.keys['q']) {
+        if (this.keys["q"]) {
             moveDir = vec3.sub(moveDir, this.cameraUp);
         }
-        if (this.keys['e']) {
+        if (this.keys["e"]) {
             moveDir = vec3.add(moveDir, this.cameraUp);
         }
 
-        let moveSpeed = this.moveSpeed * deltaTime;
+        let moveSpeed = this.moveSpeed * Math.max(0, Number.isFinite(deltaTime) ? deltaTime : 0);
         const moveSpeedMultiplier = 3;
-        if (this.keys['shift']) {
+        if (this.keys["shift"]) {
             moveSpeed *= moveSpeedMultiplier;
         }
-        if (this.keys['alt']) {
+        if (this.keys["alt"]) {
             moveSpeed /= moveSpeedMultiplier;
         }
 
@@ -122,17 +214,73 @@ export class Camera {
         }
     }
 
+    private updateUniforms() {
+        const lookPos = vec3.add(this.cameraPos, this.cameraFront);
+        this.viewMat = mat4.lookAt(this.cameraPos, lookPos, [0, 1, 0]);
+        const viewProjMat = mat4.mul(this.projMat, this.viewMat);
+        this.invViewProjMat = mat4.inverse(viewProjMat);
+
+        const [clusterX, clusterY, clusterZ] = clusterDimensions();
+        const logScale = clusterZ / Math.log(Camera.farPlane / Camera.nearPlane);
+        const logBias = -Math.log(Camera.nearPlane) * logScale;
+
+        this.uniforms.viewProjMat = viewProjMat;
+        this.uniforms.viewMat = this.viewMat;
+        this.uniforms.invProjMat = this.invProjMat;
+        this.uniforms.invViewProjMat = this.invViewProjMat;
+        this.uniforms.viewport = [
+            this.viewportWidth,
+            this.viewportHeight,
+            1 / this.viewportWidth,
+            1 / this.viewportHeight,
+        ];
+        this.uniforms.depth = [Camera.nearPlane, Camera.farPlane, logScale, logBias];
+        this.uniforms.clusterDims = [clusterX, clusterY, clusterZ, 256];
+
+        device.queue.writeBuffer(this.uniformsBuffer, 0, this.uniforms.buffer);
+    }
+
+    resize(width: number = canvas.width, height: number = canvas.height) {
+        this.viewportWidth = Math.max(1, Math.floor(width));
+        this.viewportHeight = Math.max(1, Math.floor(height));
+        this.projMat = mat4.perspective(
+            toRadians(fovYDegrees),
+            this.viewportWidth / this.viewportHeight,
+            Camera.nearPlane,
+            Camera.farPlane,
+        );
+        this.invProjMat = mat4.inverse(this.projMat);
+        this.updateUniforms();
+    }
+
+    setPose(position: [number, number, number], yaw: number, pitch: number) {
+        this.cameraPos = vec3.create(position[0], position[1], position[2]);
+        this.yaw = yaw;
+        this.pitch = Math.max(-89, Math.min(89, pitch));
+        this.updateCameraVectors();
+        this.updateUniforms();
+    }
+
     onFrame(deltaTime: number) {
         this.processInput(deltaTime);
+        // updateUniforms intentionally re-reads clusterDimensions every frame so
+        // a GUI grid change reaches all shader stages without recreating Camera.
+        this.updateUniforms();
+    }
 
-        const lookPos = vec3.add(this.cameraPos, vec3.scale(this.cameraFront, 1));
-        const viewMat = mat4.lookAt(this.cameraPos, lookPos, [0, 1, 0]);
-        const viewProjMat = mat4.mul(this.projMat, viewMat);
-        // TODO-1.1: set `this.uniforms.viewProjMat` to the newly calculated view proj mat
+    dispose() {
+        if (this.disposed) {
+            return;
+        }
+        this.disposed = true;
 
-        // TODO-2: write to extra buffers needed for light clustering here
-
-        // TODO-1.1: upload `this.uniforms.buffer` (host side) to `this.uniformsBuffer` (device side)
-        // check `lights.ts` for examples of using `device.queue.writeBuffer()`
+        window.removeEventListener("keydown", this.keyDownListener);
+        window.removeEventListener("keyup", this.keyUpListener);
+        window.removeEventListener("blur", this.blurListener);
+        canvas.removeEventListener("mousedown", this.mouseDownListener);
+        canvas.removeEventListener("mouseup", this.mouseUpListener);
+        canvas.removeEventListener("mousemove", this.mouseMoveListener);
+        this.keys = {};
+        this.uniformsBuffer.destroy();
     }
 }
