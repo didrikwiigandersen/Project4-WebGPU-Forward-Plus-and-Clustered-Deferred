@@ -1,0 +1,164 @@
+{
+  "capturedAt": "2026-10-13T00:55:27.527Z",
+  "passed": true,
+  "tests": [
+    {
+      "name": "Naive reference is finite and nonblack",
+      "passed": true,
+      "metrics": {
+        "meanAbsoluteRgb": 0,
+        "coveredPixels": 126399,
+        "fractionWithin4Bytes": 1,
+        "fractionHdrWithin": 1,
+        "maximum": 0,
+        "finite": true
+      }
+    },
+    {
+      "name": "Forward+ direct",
+      "passed": true,
+      "metrics": {
+        "meanAbsoluteRgb": 5.39630528830697e-10,
+        "coveredPixels": 126399,
+        "fractionWithin4Bytes": 1,
+        "fractionHdrWithin": 1,
+        "maximum": 0.00006103515625,
+        "finite": true
+      }
+    },
+    {
+      "name": "Forward+ bundles",
+      "passed": true,
+      "metrics": {
+        "meanAbsoluteRgb": 1.1871871634275334e-9,
+        "coveredPixels": 126399,
+        "fractionWithin4Bytes": 1,
+        "fractionHdrWithin": 1,
+        "maximum": 0.0001220703125,
+        "finite": true
+      }
+    },
+    {
+      "name": "Forward+ depth prepass",
+      "passed": true,
+      "metrics": {
+        "meanAbsoluteRgb": 0.000004448920120427638,
+        "coveredPixels": 126399,
+        "fractionWithin4Bytes": 0.9999446198150301,
+        "fractionHdrWithin": 0.9998813281750647,
+        "maximum": 0.2379150390625,
+        "finite": true
+      }
+    },
+    {
+      "name": "Forward+ active-cluster culling",
+      "passed": true,
+      "metrics": {
+        "meanAbsoluteRgb": 0.0000044487238911444266,
+        "coveredPixels": 126399,
+        "fractionWithin4Bytes": 0.9999446198150301,
+        "fractionHdrWithin": 0.9998813281750647,
+        "maximum": 0.2379150390625,
+        "finite": true
+      }
+    },
+    {
+      "name": "Deferred MRT fullscreen",
+      "passed": true,
+      "metrics": {
+        "meanAbsoluteRgb": 0.00023894952955069365,
+        "coveredPixels": 126399,
+        "fractionWithin4Bytes": 0.9998496823550819,
+        "fractionHdrWithin": 0.36243166480747474,
+        "maximum": 0.05615234375,
+        "finite": true
+      }
+    },
+    {
+      "name": "Deferred MRT compute",
+      "passed": true,
+      "metrics": {
+        "meanAbsoluteRgb": 0.00023895012805000745,
+        "coveredPixels": 126399,
+        "fractionWithin4Bytes": 0.9998496823550819,
+        "fractionHdrWithin": 0.36243166480747474,
+        "maximum": 0.05615234375,
+        "finite": true
+      }
+    },
+    {
+      "name": "Deferred compact fullscreen",
+      "passed": true,
+      "metrics": {
+        "meanAbsoluteRgb": 0.0002404944575679155,
+        "coveredPixels": 126399,
+        "fractionWithin4Bytes": 0.9998259479900948,
+        "fractionHdrWithin": 0.36166425367289295,
+        "maximum": 0.05712890625,
+        "finite": true
+      }
+    },
+    {
+      "name": "Deferred compact compute",
+      "passed": true,
+      "metrics": {
+        "meanAbsoluteRgb": 0.00024049417242223833,
+        "coveredPixels": 126399,
+        "fractionWithin4Bytes": 0.9998259479900948,
+        "fractionHdrWithin": 0.36166425367289295,
+        "maximum": 0.05712890625,
+        "finite": true
+      }
+    },
+    {
+      "name": "Visible-depth coverage of active-cluster mask",
+      "passed": true,
+      "metrics": {
+        "visible": 129600,
+        "missing": 0,
+        "activeClusters": 278,
+        "totalClusters": 3456,
+        "overflowPixelFraction": 0.8799382716049383
+      }
+    },
+    {
+      "name": "Odd-sized compact compute and bloom",
+      "passed": true,
+      "metrics": {
+        "width": 1001,
+        "height": 563
+      }
+    },
+    {
+      "name": "Zero-light scene stays black with bloom",
+      "passed": true,
+      "metrics": {
+        "pixels": 129600
+      }
+    },
+    {
+      "name": "GPU clusters agree with independent CPU bounds and intersections",
+      "passed": true,
+      "metrics": {
+        "clusters": 48,
+        "membershipChecks": 594
+      }
+    },
+    {
+      "name": "GPU overflow, zero lights, and mask reset",
+      "passed": true,
+      "metrics": {
+        "observedOverflow": 24,
+        "capacity": 256
+      }
+    },
+    {
+      "name": "No uncaptured GPU errors",
+      "passed": true,
+      "metrics": {
+        "errors": []
+      }
+    }
+  ],
+  "gpuErrors": []
+}

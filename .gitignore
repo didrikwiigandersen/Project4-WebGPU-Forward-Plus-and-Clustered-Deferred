@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local benchmark recovery artifacts
+docs/performance/*-checkpoint.json
+docs/performance/*-part-*.json
+
+# Offline analysis caches
+__pycache__/
+*.pyc

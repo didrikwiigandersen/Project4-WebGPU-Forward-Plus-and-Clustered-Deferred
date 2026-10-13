@@ -1,0 +1,9 @@
+{
+  "chip_type": "Apple M5",
+  "machine_model": "Mac17,2",
+  "number_processors": "proc 10:4:0:6",
+  "physical_memory": "24 GB",
+  "macOS": "27.0.1",
+  "GPU": "Apple M5, 10 GPU cores",
+  "Chrome": "Google Chrome 155.0.8059.40"
+}

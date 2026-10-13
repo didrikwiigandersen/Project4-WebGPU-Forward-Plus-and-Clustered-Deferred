@@ -1,0 +1,285 @@
+{
+  "sourceCommit": "a54d4089a82844d70fa322721b8403f026188b0c",
+  "capture": "Native Chrome WebGPU swap-chain readback; actual app controls. Verified light slider maximum before final captures.",
+  "files": {
+    "sponza.png": {
+      "width": 1280,
+      "height": 720,
+      "cameraPreset": "Atrium",
+      "lightCount": 5000,
+      "clusterGrid": "16x9x24",
+      "freezeLights": true,
+      "fixedTime": 1000,
+      "bundles": true,
+      "optimizedLightMath": true,
+      "bloomThreshold": 1,
+      "bloomStrength": 0.2,
+      "mode": "clustered deferred",
+      "compactGBuffer": true,
+      "deferredCompute": true,
+      "bloom": true,
+      "debugView": "none",
+      "bytes": 2323237,
+      "sha256": "c6efb85c202bebfeb5bf0007af2b5d2c7c868ccacc447ab09937dc1e6f78269c"
+    },
+    "bloom-on.png": {
+      "width": 1280,
+      "height": 720,
+      "cameraPreset": "Atrium",
+      "lightCount": 5000,
+      "clusterGrid": "16x9x24",
+      "freezeLights": true,
+      "fixedTime": 1000,
+      "bundles": true,
+      "optimizedLightMath": true,
+      "bloomThreshold": 1,
+      "bloomStrength": 0.2,
+      "mode": "clustered deferred",
+      "compactGBuffer": true,
+      "deferredCompute": true,
+      "bloom": true,
+      "debugView": "none",
+      "bytes": 2323237,
+      "sha256": "c6efb85c202bebfeb5bf0007af2b5d2c7c868ccacc447ab09937dc1e6f78269c"
+    },
+    "bloom-off.png": {
+      "width": 1280,
+      "height": 720,
+      "cameraPreset": "Atrium",
+      "lightCount": 5000,
+      "clusterGrid": "16x9x24",
+      "freezeLights": true,
+      "fixedTime": 1000,
+      "bundles": true,
+      "optimizedLightMath": true,
+      "bloomThreshold": 1,
+      "bloomStrength": 0.2,
+      "mode": "clustered deferred",
+      "compactGBuffer": true,
+      "deferredCompute": true,
+      "bloom": false,
+      "debugView": "none",
+      "bytes": 2347013,
+      "sha256": "a5ae5e5615d716fb8b4a17bb43e92be5d2da725276aee6ef39e94e5522569208"
+    },
+    "normals.png": {
+      "width": 1280,
+      "height": 720,
+      "cameraPreset": "Atrium",
+      "lightCount": 5000,
+      "clusterGrid": "16x9x24",
+      "freezeLights": true,
+      "fixedTime": 1000,
+      "bundles": true,
+      "optimizedLightMath": true,
+      "bloomThreshold": 1,
+      "bloomStrength": 0.2,
+      "mode": "clustered deferred",
+      "compactGBuffer": true,
+      "deferredCompute": true,
+      "bloom": false,
+      "debugView": "normals",
+      "bytes": 699474,
+      "sha256": "d674b93b8e24cfc130e5fe1535023574b9f84ca713e7f1fbf8c6a1bea1e5129d"
+    },
+    "depth.png": {
+      "width": 1280,
+      "height": 720,
+      "cameraPreset": "Atrium",
+      "lightCount": 5000,
+      "clusterGrid": "16x9x24",
+      "freezeLights": true,
+      "fixedTime": 1000,
+      "bundles": true,
+      "optimizedLightMath": true,
+      "bloomThreshold": 1,
+      "bloomStrength": 0.2,
+      "mode": "clustered deferred",
+      "compactGBuffer": true,
+      "deferredCompute": true,
+      "bloom": false,
+      "debugView": "depth",
+      "bytes": 44455,
+      "sha256": "36ebba3a00f6aa005ae0edc706a6f6666c537f1946a5d4c3458685de6d8dd84d"
+    },
+    "clusters.png": {
+      "width": 1280,
+      "height": 720,
+      "cameraPreset": "Atrium",
+      "lightCount": 5000,
+      "clusterGrid": "16x9x24",
+      "freezeLights": true,
+      "fixedTime": 1000,
+      "bundles": true,
+      "optimizedLightMath": true,
+      "bloomThreshold": 1,
+      "bloomStrength": 0.2,
+      "mode": "forward+",
+      "depthMode": "culling",
+      "bloom": false,
+      "debugView": "clusters",
+      "bytes": 34070,
+      "sha256": "fbb6cc57e14c8cc99261cc2e5415eb0c93f6243e4da2ee373b52ef1920324cd3"
+    },
+    "active-clusters.png": {
+      "width": 1280,
+      "height": 720,
+      "cameraPreset": "Atrium",
+      "lightCount": 5000,
+      "clusterGrid": "16x9x24",
+      "freezeLights": true,
+      "fixedTime": 1000,
+      "bundles": true,
+      "optimizedLightMath": true,
+      "bloomThreshold": 1,
+      "bloomStrength": 0.2,
+      "mode": "forward+",
+      "depthMode": "culling",
+      "bloom": false,
+      "debugView": "active-clusters",
+      "activeClusters": 281,
+      "totalClusters": 3456,
+      "bytes": 36142,
+      "sha256": "08462f2a70e616834de6b0d3c9e27cd4458e96b7e6f4ab21a034f896d1f6ecf7"
+    },
+    "light-count.png": {
+      "width": 1280,
+      "height": 720,
+      "cameraPreset": "Atrium",
+      "lightCount": 5000,
+      "clusterGrid": "16x9x24",
+      "freezeLights": true,
+      "fixedTime": 1000,
+      "bundles": true,
+      "optimizedLightMath": true,
+      "bloomThreshold": 1,
+      "bloomStrength": 0.2,
+      "mode": "forward+",
+      "depthMode": "culling",
+      "bloom": false,
+      "debugView": "light-count",
+      "bytes": 35623,
+      "sha256": "93a43de33ba723e6c3b4d5ac77a03e49dcabb94ba4fb7750fdc0d21171744b45"
+    },
+    "overflow.png": {
+      "width": 1280,
+      "height": 720,
+      "cameraPreset": "Atrium",
+      "lightCount": 5000,
+      "clusterGrid": "8x4x16",
+      "freezeLights": true,
+      "fixedTime": 1000,
+      "bundles": true,
+      "optimizedLightMath": true,
+      "bloomThreshold": 1,
+      "bloomStrength": 0.2,
+      "mode": "forward+",
+      "depthMode": "culling",
+      "bloom": false,
+      "debugView": "overflow",
+      "bytes": 30978,
+      "sha256": "f13c223e9cf836d362cf5c1942d12dd056a2d06fda6f301e76cf2bd03909c2a3"
+    }
+  },
+  "featureTour": {
+    "capture": "Native canvas recording using MediaRecorder; ten captioned five-second feature phases, moving lights, actual renderer variants. MP4 transcoded offline from the original WebM.",
+    "requestedCaptureFramesPerSecond": 30,
+    "phases": [
+      {
+        "startSeconds": 0,
+        "durationSeconds": 5,
+        "caption": "Naive forward \u00b7 1,024 point lights"
+      },
+      {
+        "startSeconds": 5,
+        "durationSeconds": 5,
+        "caption": "Forward+ \u00b7 cluster light lists"
+      },
+      {
+        "startSeconds": 10,
+        "durationSeconds": 5,
+        "caption": "Forward+ \u00b7 depth prepass and active-cluster culling"
+      },
+      {
+        "startSeconds": 15,
+        "durationSeconds": 5,
+        "caption": "Occupied visible cluster IDs \u00b7 depth-based culling"
+      },
+      {
+        "startSeconds": 20,
+        "durationSeconds": 5,
+        "caption": "Clustered deferred \u00b7 baseline MRT and fullscreen lighting"
+      },
+      {
+        "startSeconds": 25,
+        "durationSeconds": 5,
+        "caption": "Compute deferred \u00b7 12-byte compact G-buffer"
+      },
+      {
+        "startSeconds": 30,
+        "durationSeconds": 5,
+        "caption": "Decoded octahedral normals"
+      },
+      {
+        "startSeconds": 35,
+        "durationSeconds": 5,
+        "caption": "Render bundles \u00b7 reusable geometry commands"
+      },
+      {
+        "startSeconds": 40,
+        "durationSeconds": 5,
+        "caption": "Compute bloom \u00b7 Gaussian highlight blur"
+      },
+      {
+        "startSeconds": 45,
+        "durationSeconds": 5,
+        "caption": "5,000 lights \u00b7 compact compute deferred and bloom"
+      }
+    ],
+    "files": {
+      "feature-tour.webm": {
+        "bytes": 21948228,
+        "sha256": "707cf587317f88f7b74ca67bf7fced6f0b0f4896bef17a9c01d98fec5fb42071",
+        "probe": {
+          "programs": [],
+          "stream_groups": [],
+          "streams": [
+            {
+              "codec_name": "vp9",
+              "width": 1280,
+              "height": 720,
+              "pix_fmt": "yuv420p",
+              "r_frame_rate": "46/3",
+              "avg_frame_rate": "46/3"
+            }
+          ],
+          "format": {
+            "size": "21948228"
+          }
+        }
+      },
+      "feature-tour.mp4": {
+        "bytes": 28940923,
+        "sha256": "1d16d5c4c2285c19ffeda522ca7bf898e9a4af6b823db422cfa25c8f3efb6d26",
+        "probe": {
+          "programs": [],
+          "stream_groups": [],
+          "streams": [
+            {
+              "codec_name": "h264",
+              "width": 1280,
+              "height": 720,
+              "pix_fmt": "yuvj420p",
+              "r_frame_rate": "46/3",
+              "avg_frame_rate": "46/3"
+            }
+          ],
+          "format": {
+            "duration": "50.282609",
+            "size": "28940923"
+          }
+        }
+      }
+    }
+  }
+}
