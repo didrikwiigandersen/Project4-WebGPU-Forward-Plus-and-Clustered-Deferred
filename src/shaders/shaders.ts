@@ -29,8 +29,9 @@ import clusteringComputeRaw from './clustering.cs.wgsl?raw';
 
 // CHECKITOUT: feel free to add more constants here and to refer to them in your shader code
 
-// Note that these are declared in a somewhat roundabout way because otherwise minification will drop variables
-// that are unused in host side code.
+// Keep shader constants in one table so host code and WGSL interpolation use
+// the same values. The indexed lookup below also keeps every property visible
+// to production tree-shaking.
 export const constants = {
     bindGroup_scene: 0,
     bindGroup_model: 1,
@@ -44,14 +45,24 @@ export const constants = {
 
 // =================================
 
-function evalShaderRaw(raw: string) {
-    return eval('`' + raw.replaceAll('${', '${constants.') + '`');
+function interpolateShaderRaw(raw: string): string {
+    const interpolated = raw.replace(/\$\{([^{}]*)\}/g, (placeholder, name: string) => {
+        if (!Object.prototype.hasOwnProperty.call(constants, name)) {
+            throw new Error(`Unknown shader constant placeholder: ${placeholder}`);
+        }
+        return String(constants[name as keyof typeof constants]);
+    });
+
+    if (interpolated.includes('${')) {
+        throw new Error('Malformed shader constant placeholder');
+    }
+    return interpolated;
 }
 
-const commonSrc: string = evalShaderRaw(commonRaw);
+const commonSrc: string = interpolateShaderRaw(commonRaw);
 
 export function processShaderRaw(raw: string): string {
-    return commonSrc + evalShaderRaw(raw);
+    return commonSrc + interpolateShaderRaw(raw);
 }
 
 export const naiveVertSrc: string = processShaderRaw(naiveVertRaw);
