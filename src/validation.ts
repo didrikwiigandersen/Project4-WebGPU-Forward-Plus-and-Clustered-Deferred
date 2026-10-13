@@ -305,6 +305,7 @@ export async function runValidation(app: ProjectApp) {
     const previousSettings = { ...settings };
     const previousLightCount = app.lights.numLights;
     const previousResolution = app.resolution;
+    const previousCameraPreset = app.cameraPreset;
     const previousPose = {
         position: Array.from(app.camera.cameraPos) as [number, number, number],
         yaw: app.camera.yaw,
@@ -978,6 +979,7 @@ export async function runValidation(app: ProjectApp) {
                 ...previousSettings,
                 lightCount: previousLightCount,
                 resolution: previousResolution,
+                cameraPreset: previousCameraPreset,
             });
             app.pause();
         } catch (error) {

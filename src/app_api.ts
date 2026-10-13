@@ -7,6 +7,7 @@ export type Configuration = Partial<typeof settings> & { lightCount?: number; wi
 export interface ProjectApp {
     readonly renderer: Renderer;
     readonly resolution: string;
+    readonly cameraPreset: string;
     readonly camera: Camera;
     readonly lights: Lights;
     readonly errors: string[];

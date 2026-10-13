@@ -77,6 +77,7 @@ export async function captureDemo(app: ProjectApp) {
         yaw: app.camera.yaw,
         pitch: app.camera.pitch,
         resolution: app.resolution,
+        cameraPreset: app.cameraPreset,
         inputEnabled: app.camera.inputEnabled,
     };
 
@@ -376,6 +377,7 @@ export async function captureDemo(app: ProjectApp) {
             ...previous.settings,
             lightCount: previous.lightCount,
             resolution: previous.resolution,
+            cameraPreset: previous.cameraPreset,
         }));
         recordCleanupError(cleanupErrors, () => app.camera.setPose(
             previous.cameraPosition,

@@ -54,7 +54,7 @@ async function start() {
         updateApplicability();
     }
     const app: ProjectApp = {
-        get renderer() { return renderer; }, get resolution() { return resolution; }, camera, lights,
+        get renderer() { return renderer; }, get resolution() { return resolution; }, get cameraPreset() { return controls.camera; }, camera, lights,
         get errors() { return gpuErrors; },
         configure(configuration: Configuration) {
             const { lightCount, width, height, resolution: requestedResolution, cameraPreset, ...patch } = configuration;

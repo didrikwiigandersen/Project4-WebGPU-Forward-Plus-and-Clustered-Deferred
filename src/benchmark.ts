@@ -69,7 +69,7 @@ function percentile(values: number[], fraction: number): number {
 }
 export async function runBenchmark(app: ProjectApp, scope: 'full' | 'quick' | 'capacity') {
     if (!profiler.supported) throw new Error('This GPU does not expose timestamp-query; GPU benchmark is unavailable.');
-    const previous = { ...settings }, count = app.lights.numLights, previousResolution = app.resolution;
+    const previous = { ...settings }, count = app.lights.numLights, previousResolution = app.resolution, previousCameraPreset = app.cameraPreset;
     const pose = { position: Array.from(app.camera.cameraPos) as [number, number, number], yaw: app.camera.yaw, pitch: app.camera.pitch };
     const raw: { caseId: string; repeat: number; sample: FrameMeasurement }[] = [];
     const results: Record<string, unknown>[] = [];
@@ -117,7 +117,7 @@ export async function runBenchmark(app: ProjectApp, scope: 'full' | 'quick' | 'c
         await saveEvidence(`performance/${evidenceName}.csv`, csv, 'text/csv');
         return { scope, cases: plan.length, samples: raw.length, path: `docs/performance/${evidenceName}.json` };
     } finally {
-        await profiler.drain(); app.configure({ ...previous, lightCount: count, resolution: previousResolution });
+        await profiler.drain(); app.configure({ ...previous, lightCount: count, resolution: previousResolution, cameraPreset: previousCameraPreset });
         app.camera.setPose(pose.position, pose.yaw, pose.pitch); app.resume();
     }
 }
