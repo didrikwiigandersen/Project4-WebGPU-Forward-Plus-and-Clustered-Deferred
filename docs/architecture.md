@@ -281,14 +281,42 @@ physical operating-system inventory.
 
 The final performance reports and their preserved
 [`validation-capacity-1024.json`](performance/validation-capacity-1024.json) parity evidence are tied to measured
-source `a54d4089a82844d70fa322721b8403f026188b0c`. Release UI source is
-`d39577f365cf0aa547d9ad60f0dd5aafb8ab2c89`; the benchmark was not rerun at that commit. The build manifest records
-54 hashes for each snapshot and five changed controller/automation paths: `src/app_api.ts`, `src/benchmark.ts`,
-`src/capture.ts`, `src/main.ts`, and `src/validation.ts`. Every shader/renderer hash is unchanged, and no benchmark
-case, timed-frame collection, or camera-matrix behavior changed. Final release
-[`validation.json`](performance/validation.json) covers the later source. Release accessibility verification selected
-Arcade, ran Atrium validation fixtures, then confirmed cleanup restored the Arcade dropdown and 720p resolution
-before restoring the exact saved pose.
+source `a54d4089a82844d70fa322721b8403f026188b0c`. Public-native GPU validation is tied to source
+`39287f3fc59d33444d18046cc0eda2d5de051a00`, while final packaged source is
+`a256db158cd8bf04a264d1ac2cedd8fa4be803eb`. The benchmark was not rerun at either later commit. The final manifest
+snapshot records 55 hashes and eight changed paths relative to A54: five UI/controller automation paths,
+`src/shaders/shaders.ts`, `style.css`, and the added shader-preprocessing regression test. The recorded raw `.wgsl`
+files and renderer implementations match A54; the host shader loader is intentionally different.
+
+The original loader interpolated constants through `eval`. Production tree shaking could not see the
+`constants.lightRadius` reference embedded in that string, removed the property, and generated `undefined` in
+`common.wgsl` and clustering WGSL. The corrected loader performs validated explicit property substitution, retaining
+real host-language references for bundling. No WGSL math, renderer path, resource layout, workload, benchmark
+protocol, or validation threshold changed. The
+[`shader-build-parity.json`](performance/shader-build-parity.json) proof compares 18 processed exports across the A54
+development capture, fixed development processing, and application-like minified production processing with zero
+byte delta. Its emitted main-bundle audit compares 21 unique shader-module strings—18 processed and 3 direct raw—
+against the original development strings and records 21 exact matches, zero mismatches/byte delta, and no unresolved
+placeholder or `undefined` token. It also records identical 22-file raw-WGSL inputs, assembly, and constants.
+The pre-edit development capture at `f241a2f7c56c7f2126a9112ec59f071ce24ead6b` has an exact `src/shaders` Git-tree
+match to A54, and the recorded Vite, package, lockfile, and TypeScript build-input Git objects also match A54.
+That proof's recorded source is 39287, matching the public-native validation source; it is not attributed to A256.
+
+The only packaged change after validation is `style.css`: `object-fit: contain` on `#mainCanvas` preserves the aspect
+ratio of fixed 720p/1080p drawing buffers inside differently shaped CSS viewports. The manifest records unchanged
+canvas CSS width/height, client and drawing-buffer dimensions, all JavaScript and generated-shader bytes, renderer
+math/layout, and timed paths. This presentation-only delta has no native GPU report attributed to A256.
+
+Historical source `d39577f365cf0aa547d9ad60f0dd5aafb8ab2c89` remains in the manifest's `releaseHistory` with
+[`validation-ui-restoration.json`](performance/validation-ui-restoration.json): accessibility verification selected
+Arcade, ran Atrium fixtures, and restored the Arcade dropdown plus 720p before the exact saved pose. The initial
+public deployment at `f241a2f7c56c7f2126a9112ec59f071ce24ead6b` preserves its failure in
+[`validation-production-initial.json`](performance/validation-production-initial.json): 28/35 checks failed and 377
+GPU errors exposed the removed shader constant. Source 39287 also remains in `releaseHistory` as the production-fix
+and public-validation source. Current [`validation.json`](performance/validation.json), captured at
+`2026-10-13T05:28:49.046Z`, covers source `39287f…`
+on the public GitHub Pages HTTPS build in native Chrome on the Apple GPU and records 35/35 native checks with zero
+GPU errors. The manifest also records 23 CPU tests, typecheck, and production build passing.
 
 When timestamp queries are unavailable, GPU and render times remain `null`/unavailable; CPU time is emitted separately and is never substituted for GPU time. Invalid timestamp order or mapping failures increment the rejected-sample count.
 

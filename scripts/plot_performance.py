@@ -2244,6 +2244,7 @@ def validation_policy(
 def validation_section(
     validation: Mapping[str, Any] | None,
     initial_validation: Mapping[str, Any] | None = None,
+    validation_environment: str | None = None,
 ) -> str:
     if not validation:
         return (
@@ -2256,8 +2257,9 @@ def validation_section(
     error_count = len(gpu_errors) if isinstance(gpu_errors, list) else "unknown"
     captured = validation.get("capturedAt", "not reported")
     capacity = validation.get("capacity", "not reported")
+    environment_text = f" from {validation_environment}" if validation_environment else ""
     sections = [(
-        f"The linked [`validation.json`](./validation.json) was captured at {captured} and records "
+        f"The linked [`validation.json`](./validation.json) was captured at {captured}{environment_text} and records "
         f"capacity {capacity}, **{passed}/{len(tests)} native GPU checks passing**, and "
         f"**{error_count} recorded GPU errors**. "
         "The summaries below use each comparison's declared `gateLabel`; the intentional Arcade camera-change "
@@ -2567,6 +2569,9 @@ def release_provenance_note(
     manifest: Mapping[str, Any] | None,
     validation: Mapping[str, Any] | None,
     full_report: Report | None,
+    shader_build_parity: Mapping[str, Any] | None = None,
+    initial_production_validation: Mapping[str, Any] | None = None,
+    ui_restoration_validation: Mapping[str, Any] | None = None,
 ) -> str:
     if full_report is None:
         return ""
@@ -2603,63 +2608,262 @@ def release_provenance_note(
                     break
 
     measured_text = f"`{measured_commit}`" if measured_commit != "not recorded" else measured_commit
-    if release_commit:
+    if release_commit and release:
+        validation_source_commit = release.get("validationSourceCommit")
+        if not isinstance(validation_source_commit, str) or not validation_source_commit:
+            validation_source_commit = release_commit
+        validation_source_text = f"`{validation_source_commit}`"
         measured_validation = measured_build.get("validationReport") if measured_build else None
         measured_validation_text = (
             f"[`{Path(measured_validation).name}`](./{measured_validation})"
             if isinstance(measured_validation, str) and measured_validation
             else "the measured-build validation report"
         )
-        release_validation = release.get("validationReport") if release else None
+        release_validation = release.get("validationReport")
         release_validation_text = (
             f"[`{Path(release_validation).name}`](./{release_validation})"
             if isinstance(release_validation, str) and release_validation
             else "the release validation report"
         )
 
-        changed_paths = release.get("changesSinceMeasuredSource") if release else None
+        release_hashes = release.get("sourceSha256")
+        changed_paths = release.get("changesSinceMeasuredSource")
         changed_text = ""
         if isinstance(changed_paths, list) and all(isinstance(path, str) for path in changed_paths):
+            hash_count_text = (
+                f" records {len(release_hashes)} hashes and"
+                if isinstance(release_hashes, Mapping)
+                else ""
+            )
             changed_text = (
-                f" The manifest identifies exactly {len(changed_paths)} changed controller/automation paths: "
+                f" The final manifest snapshot{hash_count_text} identifies exactly "
+                f"{len(changed_paths)} changed paths since the measured source: "
                 + ", ".join(f"`{path}`" for path in changed_paths)
                 + "."
             )
 
         hash_text = ""
         measured_hashes = measured_build.get("sourceSha256") if measured_build else None
-        release_hashes = release.get("sourceSha256") if release else None
         if isinstance(measured_hashes, Mapping) and isinstance(release_hashes, Mapping):
             shader_renderer_paths = {
                 path
                 for path in set(measured_hashes) | set(release_hashes)
-                if path.startswith("src/shaders/")
+                if path.endswith(".wgsl")
                 or path.startswith("src/renderers/")
                 or path == "src/renderer.ts"
             }
             if shader_renderer_paths and all(
-                measured_hashes.get(path) == release_hashes.get(path) for path in shader_renderer_paths
+                path in measured_hashes
+                and path in release_hashes
+                and measured_hashes[path] == release_hashes[path]
+                for path in shader_renderer_paths
             ):
                 hash_text = (
-                    f" Both source snapshots contain {len(release_hashes)} recorded hashes, and every recorded "
-                    "shader/renderer hash is unchanged."
+                    " All recorded raw `.wgsl` and renderer implementation hashes match the measured source; "
+                    "the host shader loader is intentionally changed."
                 )
 
-        return (
+        paragraphs = [(
             f"Performance measurements and their parity evidence in {measured_validation_text} are tied to source "
-            f"{measured_text}. Release UI source is `{release_commit}` and is validated separately by "
-            f"{release_validation_text}; the 176-case benchmark was not rerun at the release commit.{changed_text}"
-            f"{hash_text}\n\n"
-            "The release cleanup restores the saved camera-preset selection before restoring the exact saved pose. "
-            "Accessibility verification selected Arcade, ran the Atrium validation fixtures, then confirmed cleanup "
-            "restored the Arcade dropdown selection and 720p resolution. The change does not alter measured shader, "
-            "renderer, benchmark-case, timed-frame, or camera-matrix behavior."
-        )
+            f"{measured_text}. Public-native {release_validation_text} is tied to source "
+            f"{validation_source_text}. Final packaged source is `{release_commit}`; the 176-case benchmark was "
+            f"not rerun at either later commit.{changed_text}"
+            f"{hash_text}"
+        )]
+
+        ui_only_paths = release.get("uiOnlyChangesSinceValidation")
+        ui_only_description = release.get("uiOnlyChangeDescription")
+        if isinstance(ui_only_paths, list) and all(isinstance(path, str) for path in ui_only_paths):
+            ui_text = (
+                f"The final package follows validated source {validation_source_text} with exactly "
+                f"{len(ui_only_paths)} recorded UI-only path"
+                f"{'s' if len(ui_only_paths) != 1 else ''}: "
+                + ", ".join(f"`{path}`" for path in ui_only_paths)
+                + "."
+            )
+            if isinstance(ui_only_description, str) and ui_only_description:
+                ui_text += f" {ui_only_description.rstrip('.')}."
+            ui_text += (
+                f" The native report remains attributed to {validation_source_text}, not packaged source "
+                f"`{release_commit}`."
+            )
+            paragraphs.append(ui_text)
+
+        if shader_build_parity:
+            parity_result = shader_build_parity.get("result")
+            bundle_audit = shader_build_parity.get("actualMainBundleAudit")
+            provenance = shader_build_parity.get("sourceProvenance")
+            impact = shader_build_parity.get("benchmarkImpact")
+            if isinstance(parity_result, Mapping) and isinstance(bundle_audit, Mapping):
+                def display_value(value: Any) -> str:
+                    return str(value).lower() if isinstance(value, bool) else str(value)
+
+                parity_report = release.get("shaderBuildParityReport", "shader-build-parity.json")
+                parity_link = f"[`{Path(str(parity_report)).name}`](./{parity_report})"
+                current_worktree = provenance.get("currentWorktree") if isinstance(provenance, Mapping) else None
+                proof_source = (
+                    current_worktree.get("observedSourceCommit")
+                    if isinstance(current_worktree, Mapping)
+                    else None
+                )
+                if not isinstance(proof_source, str) or not proof_source:
+                    proof_source = validation_source_commit
+                proof_text = (
+                    f"The {parity_link} proof is recorded for source `{proof_source}`. It records "
+                    f"{parity_result.get('exportedShaderCount', 'unknown')} exported "
+                    "processed shader strings with exact equality="
+                    f"{display_value(parity_result.get('allExportedShaderStringsExactlyEqual', 'unknown'))} "
+                    "across the measured development capture, fixed development processing, and application-like "
+                    "minified production processing; its fixed-production byte delta is "
+                    f"{parity_result.get('totalByteDeltaOriginalToFixedApplicationLikeMinifiedProduction', 'unknown')}. "
+                    f"The emitted-main-bundle audit compares {bundle_audit.get('totalUniqueShaderModuleStringsCompared', 'unknown')} "
+                    f"unique shader-module strings, records {bundle_audit.get('exactMatchesToOriginalDevelopment', 'unknown')} "
+                    f"exact matches, {bundle_audit.get('mismatches', 'unknown')} mismatches, byte delta "
+                    f"{bundle_audit.get('byteDelta', 'unknown')}, {bundle_audit.get('unresolvedPlaceholderCount', 'unknown')} "
+                    "unresolved placeholders, and "
+                    f"{bundle_audit.get('undefinedTokenCount', 'unknown')} `undefined` tokens."
+                )
+                source_proof = provenance.get("measuredToCurrentAssemblyProof") if isinstance(provenance, Mapping) else None
+                if isinstance(source_proof, Mapping):
+                    proof_text += (
+                        f" It also records {source_proof.get('rawWgslFileCount', 'unknown')} raw WGSL files, "
+                        f"importsExactlyEqual={display_value(source_proof.get('importsExactlyEqual', 'unknown'))}, "
+                        f"assemblyExactlyEqual={display_value(source_proof.get('assemblyExactlyEqual', 'unknown'))}, "
+                        "and constantsExactlyEqual="
+                        f"{display_value(source_proof.get('constantsExactlyEqual', 'unknown'))}."
+                    )
+                pre_edit = provenance.get("preEditSnapshot") if isinstance(provenance, Mapping) else None
+                if isinstance(pre_edit, Mapping):
+                    matched_inputs = pre_edit.get("developmentInputsGitObjectMatchToMeasuredCommit")
+                    if (
+                        pre_edit.get("exactGitTreeMatchToMeasuredCommit") is True
+                        and isinstance(matched_inputs, Mapping)
+                    ):
+                        proof_text += (
+                            f" The pre-edit development capture at `{pre_edit.get('sourceCommit', 'not recorded')}` "
+                            "has an exact shader-tree match and "
+                            f"{len(matched_inputs)} matching Vite/package/TypeScript build-input Git objects to "
+                            "the measured source."
+                        )
+                unchanged_impact = (
+                    isinstance(impact, Mapping)
+                    and impact.get("generatedWgslByteChanges") == 0
+                    and impact.get("renderingMathChanged") is False
+                    and impact.get("resourceLayoutChanged") is False
+                    and impact.get("workloadChanged") is False
+                    and impact.get("cameraChanged") is False
+                    and impact.get("benchmarkProtocolChanged") is False
+                    and impact.get("validationThresholdsChanged") is False
+                )
+                if unchanged_impact:
+                    proof_text += (
+                        " The proof records no generated-WGSL-byte, rendering-math, resource-layout, workload, "
+                        "camera, benchmark-protocol, or validation-threshold change. This establishes a one-time "
+                        "host-loader/build correction rather than new measured GPU math."
+                    )
+                if proof_source != release_commit:
+                    proof_text += f" It is not relabeled as proof for packaged source `{release_commit}`."
+                paragraphs.append(proof_text)
+
+        history_entries = manifest.get("releaseHistory") if manifest else None
+        if isinstance(history_entries, list) and history_entries:
+            history = next(
+                (
+                    entry
+                    for entry in history_entries
+                    if isinstance(entry, Mapping)
+                    and entry.get("validationReport") == "validation-ui-restoration.json"
+                ),
+                None,
+            )
+            if history:
+                history_commit = history.get("sourceCommit", "not recorded")
+                history_report = history.get("validationReport", "validation-ui-restoration.json")
+                history_link = f"[`{Path(str(history_report)).name}`](./{history_report})"
+                history_detail = ""
+                if ui_restoration_validation:
+                    ui_tests = validation_tests(ui_restoration_validation)
+                    ui_passed = sum(test.get("passed") is True for test in ui_tests)
+                    ui_errors = ui_restoration_validation.get("gpuErrors", [])
+                    ui_error_count = len(ui_errors) if isinstance(ui_errors, list) else "unknown"
+                    history_detail = (
+                        f", captured at {ui_restoration_validation.get('capturedAt', 'not reported')}, records "
+                        f"{ui_passed}/{len(ui_tests)} native checks and {ui_error_count} GPU errors"
+                    )
+                paragraphs.append(
+                    f"Historical source `{history_commit}` remains in `releaseHistory`, not as the current release. "
+                    f"Its {history_link}{history_detail}. It restores the saved camera-preset selection before the "
+                    "exact saved pose; the reviewed accessibility sequence selected Arcade, ran Atrium fixtures, "
+                    "and restored the Arcade dropdown plus 720p."
+                )
+
+            validation_history = next(
+                (
+                    entry
+                    for entry in history_entries
+                    if isinstance(entry, Mapping)
+                    and entry.get("sourceCommit") == validation_source_commit
+                    and entry.get("validationReport") == release_validation
+                ),
+                None,
+            )
+            if validation_history:
+                paragraphs.append(
+                    f"Source {validation_source_text} remains separately preserved in `releaseHistory` as the "
+                    "production-fix and public-validation source."
+                )
+
+        failure = manifest.get("initialProductionFailure") if manifest else None
+        if isinstance(failure, Mapping):
+            failure_report = failure.get("validationReport", "validation-production-initial.json")
+            failure_link = f"[`{Path(str(failure_report)).name}`](./{failure_report})"
+            failed_checks = failure.get("failedChecks", "not recorded")
+            total_checks = failure.get("totalChecks", "not recorded")
+            gpu_error_count: Any = failure.get("gpuErrors", "not recorded")
+            failure_captured = failure.get("nativeCapturedAt", "not recorded")
+            if initial_production_validation:
+                initial_tests = validation_tests(initial_production_validation)
+                failed_checks = sum(test.get("passed") is False for test in initial_tests)
+                total_checks = len(initial_tests)
+                initial_errors = initial_production_validation.get("gpuErrors", [])
+                gpu_error_count = len(initial_errors) if isinstance(initial_errors, list) else gpu_error_count
+                failure_captured = initial_production_validation.get("capturedAt", failure_captured)
+            paragraphs.append(
+                f"The initial public deployment at `{failure.get('deploymentCommit', 'not recorded')}` used source "
+                f"`{failure.get('sourceCommit', 'not recorded')}`. Its preserved {failure_link}, captured at "
+                f"{failure_captured}, records {failed_checks} failed checks out of {total_checks} and "
+                f"{gpu_error_count} GPU errors. {failure.get('cause', 'The recorded cause is unavailable.')} "
+                "The corrected host loader uses validated explicit property substitution; the failed evidence is "
+                "retained rather than silently replaced."
+            )
+
+        if validation:
+            tests = validation_tests(validation)
+            passed = sum(test.get("passed") is True for test in tests)
+            errors = validation.get("gpuErrors", [])
+            error_count = len(errors) if isinstance(errors, list) else "unknown"
+            environment = release.get("validationEnvironment") or "an environment not recorded by the manifest"
+            current_text = (
+                f"Public-native {release_validation_text} for source {validation_source_text}, captured at "
+                f"{validation.get('capturedAt', release.get('nativeCapturedAt', 'not reported'))} in {environment}, "
+                f"records {passed}/{len(tests)} native GPU checks passing and {error_count} GPU errors."
+            )
+            checks = release.get("checks")
+            if isinstance(checks, str) and checks:
+                current_text += f" The manifest records: {checks}."
+            environment_lower = str(environment).lower()
+            if "localhost" in environment_lower or "preview" in environment_lower:
+                current_text += " This is production-preview evidence, not a claim of native public-page validation."
+            if validation_source_commit != release_commit:
+                current_text += (
+                    f" It does not claim a native rerun at packaged source `{release_commit}`."
+                )
+            paragraphs.append(current_text)
+
+        return "\n\n".join(paragraphs)
     return (
-        f"Performance measurements are tied to source {measured_text}. A later independently reviewed "
-        "camera-preset selector cleanup changed UI/controller code only—not shaders, renderer paths, the timed "
-        "loop, or camera matrices. The current manifest and validation report do not record that release commit, "
-        "so this analysis does not invent or imply a release hash."
+        f"Performance measurements are tied to source {measured_text}. Release provenance metadata is absent, so "
+        "this analysis does not infer the identity or scope of any later release changes."
     )
 
 
@@ -2673,6 +2877,9 @@ def generated_analysis(
     hardware = optional_json(data_dir / "hardware.json")
     validation = optional_json(data_dir / "validation.json")
     initial_validation = optional_json(data_dir / "validation-initial-1024.json")
+    ui_restoration_validation = optional_json(data_dir / "validation-ui-restoration.json")
+    initial_production_validation = optional_json(data_dir / "validation-production-initial.json")
+    shader_build_parity = optional_json(data_dir / "shader-build-parity.json")
     build_manifest = optional_json(data_dir / "build-manifest.json")
     figure_names = {path.name for path in generated_figures}
 
@@ -2880,7 +3087,14 @@ devices.
 
 {build_manifest_section(build_manifest, all_reports)}
 
-{release_provenance_note(build_manifest, validation, full_report)}
+{release_provenance_note(
+    build_manifest,
+    validation,
+    full_report,
+    shader_build_parity,
+    initial_production_validation,
+    ui_restoration_validation,
+)}
 
 {timestamp_provenance_table(all_reports)}
 
@@ -2898,7 +3112,15 @@ stored summary. Case IDs are namespaced by report in memory, which matters becau
 
 {capture_provenance_section(all_reports)}
 
-{validation_section(validation, initial_validation)}
+{validation_section(
+    validation,
+    initial_validation,
+    (
+        build_manifest.get("release", {}).get("validationEnvironment")
+        if build_manifest and isinstance(build_manifest.get("release"), Mapping)
+        else None
+    ),
+)}
 
 ## Measurement protocol
 

@@ -190,21 +190,40 @@ Host inventory is recorded in [`hardware.json`](docs/performance/hardware.json):
 (4 performance + 6 efficiency), 10-core GPU, 24 GB unified memory, macOS 27.0.1, and installed Chrome
 155.0.8059.40. That installed version is not the capture identifier: all three raw reports independently record a
 `Chrome/154.0.0.0` user-agent and matching Apple `metal-3` adapter information. The reduced user-agent's
-`Mac OS X 10_15_7` token is browser-reported text, not physical-OS inventory. Final release
-[`validation.json`](docs/performance/validation.json), captured at `2026-10-13T04:59:14.738Z`, records 35/35 native
-GPU checks passing with zero GPU errors; the release record also reports 22 passing CPU tests, typecheck, and a
-production build. The preserved [A54 validation](docs/performance/validation-capacity-1024.json) is the parity
-evidence associated with the measured renderer source, while the preserved
-[`initial validation report`](docs/performance/validation-initial-1024.json) documents the corrected bloom fixture.
+`Mac OS X 10_15_7` token is browser-reported text, not physical-OS inventory. Public-native
+[`validation.json`](docs/performance/validation.json) is tied to source
+`39287f3fc59d33444d18046cc0eda2d5de051a00`; it was captured at `2026-10-13T05:28:49.046Z` from the public GitHub
+Pages HTTPS build in native Chrome on the Apple GPU and records 35/35 native GPU checks passing with zero GPU
+errors. That source also passed 23 CPU tests, typecheck, and a production build. The preserved
+[A54 validation](docs/performance/validation-capacity-1024.json) is the parity evidence associated with the measured
+renderer source, while the preserved [`initial validation report`](docs/performance/validation-initial-1024.json)
+documents the corrected bloom fixture.
 
 Capture-specific provenance is in [`build-manifest.json`](docs/performance/build-manifest.json): capacity 256 used
 `ecbaecd005b4bb4a666cbc3bfe98099a5190dd27`; capacity 1024 and the full benchmark used measured source
-`a54d4089a82844d70fa322721b8403f026188b0c`. Release UI source is
-`d39577f365cf0aa547d9ad60f0dd5aafb8ab2c89`; the benchmark was not rerun at that commit. The manifest records 54
-hashes for each source snapshot and exactly five changed controller/automation paths (`src/app_api.ts`,
-`src/benchmark.ts`, `src/capture.ts`, `src/main.ts`, and `src/validation.ts`), with every shader/renderer hash
-unchanged. Release verification selected Arcade, ran Atrium validation fixtures, and confirmed cleanup restored the
-Arcade dropdown selection and 720p resolution before restoring the saved pose.
+`a54d4089a82844d70fa322721b8403f026188b0c`. The benchmark was not rerun at either later source. Public-native GPU
+validation and the shader-processing fix belong to `39287f3fc59d33444d18046cc0eda2d5de051a00`. Final packaged
+source is `a256db158cd8bf04a264d1ac2cedd8fa4be803eb`; its manifest snapshot records 55 hashes and eight changed paths
+since A54. Its sole change after the validated 39287 source is `style.css`: `object-fit: contain` on `#mainCanvas`
+preserves the fixed 720p or 1080p drawing-buffer aspect ratio inside differently shaped CSS viewports. JavaScript
+and generated-shader bytes, canvas client and drawing-buffer dimensions, renderer math/layout, and timed paths are
+unchanged by that property.
+The recorded raw `.wgsl` inputs and renderer implementations still match A54. The
+[`shader-build parity proof`](docs/performance/shader-build-parity.json) reports all 18 exported processed shaders
+byte-identical across measured development, fixed development, and application-like minified production processing;
+its emitted-bundle audit found all 21 unique shader-module strings exact, with zero mismatches, byte delta,
+unresolved placeholders, or `undefined` tokens. The proof links its pre-edit F241 development capture to A54 through
+an identical shader tree and matching Vite/package/TypeScript build inputs. This proof is committed evidence for
+39287; it is not relabeled as an A256 validation.
+
+Historical source `d39577f365cf0aa547d9ad60f0dd5aafb8ab2c89` and validated source 39287 both remain in
+`releaseHistory`. D395's
+[`UI-restoration validation`](docs/performance/validation-ui-restoration.json) records 35/35 native checks and the
+camera-preset cleanup. Its initial public deployment at `f241a2f7c56c7f2126a9112ec59f071ce24ead6b` is preserved
+in the [`failed production report`](docs/performance/validation-production-initial.json): 28/35 checks failed with
+377 GPU errors because production tree shaking removed `lightRadius`, whose only host reference was hidden inside
+eval-based WGSL interpolation. The corrected loader uses validated explicit property substitution. This changes
+one-time host processing, not WGSL math, renderer paths, resource layouts, workloads, or validation thresholds.
 
 Chart regeneration requires Python 3 and Matplotlib. Regenerate validated PNG and SVG figures offline with:
 

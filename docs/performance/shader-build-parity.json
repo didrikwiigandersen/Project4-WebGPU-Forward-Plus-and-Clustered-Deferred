@@ -1,0 +1,484 @@
+{
+  "schemaVersion": 1,
+  "result": {
+    "exportedShaderCount": 18,
+    "allExportedShaderStringsExactlyEqual": true,
+    "totalByteDeltaOriginalToFixedDevelopment": 0,
+    "totalByteDeltaOriginalToFixedApplicationLikeMinifiedProduction": 0,
+    "unresolvedPlaceholderCount": 0,
+    "undefinedTokenCount": 0
+  },
+  "sourceProvenance": {
+    "measuredCommit": {
+      "commit": "a54d4089a82844d70fa322721b8403f026188b0c",
+      "subject": "Optimize light lists and strengthen renderer validation",
+      "shadersTsSha256": "99048916cd01d2af18278b199750bc8cb5be938ef25f3869ade56d8fd61301af",
+      "srcShadersGitTree": "323b4044b54b4d77cd0ec574488b24a7e4f1cbd3"
+    },
+    "preEditSnapshot": {
+      "sourceCommit": "f241a2f7c56c7f2126a9112ec59f071ce24ead6b",
+      "srcShadersGitTree": "323b4044b54b4d77cd0ec574488b24a7e4f1cbd3",
+      "exactGitTreeMatchToMeasuredCommit": true,
+      "developmentInputsGitObjectMatchToMeasuredCommit": {
+        "vite.config.ts": "dab1b8627499ed7982a4370dcd83fbc8de205a24",
+        "package.json": "a8104cbc7b07a9eb28647615beafabf1a2d0e65f",
+        "package-lock.json": "80da441c7bdbbb034df4fa72e3ca7215809bb158",
+        "tsconfig.json": "416e53c473199b34ff4c916ddf25457ea302457a"
+      },
+      "snapshotJsonSha256": "3f239a152c05d9c46799a7cba726326a592a020a811194c0847e8eae57d23286",
+      "method": "Captured all exported *Src values through the Vite development transform before editing.",
+      "mappingJustification": "The complete src/shaders Git tree and Vite/package/TypeScript inputs at the snapshot commit are byte-identical to A54, so the captured strings are A54 development-processing output rather than relabeled fixed output."
+    },
+    "measuredToCurrentAssemblyProof": {
+      "rawWgslFileCount": 22,
+      "measuredAggregateSha256": "411fd290d5a9de4d28cb1eebbb4a4db9769540d936d8b0737dcb121c8436cae8",
+      "currentAggregateSha256": "411fd290d5a9de4d28cb1eebbb4a4db9769540d936d8b0737dcb121c8436cae8",
+      "rawWgslMismatches": [],
+      "importedRawShaderCount": 19,
+      "measuredImportsSha256": "871b05965e5a0e5fe11d27cf2890f722c1d7a3a075a1b5e1ca32aece4b3ca631",
+      "currentImportsSha256": "871b05965e5a0e5fe11d27cf2890f722c1d7a3a075a1b5e1ca32aece4b3ca631",
+      "importsExactlyEqual": true,
+      "measuredAssemblySha256": "f3a8893c8615211bc93acbedcfa90372f7911ecf6bb41faa196e42bd4070f6ef",
+      "currentAssemblySha256": "f3a8893c8615211bc93acbedcfa90372f7911ecf6bb41faa196e42bd4070f6ef",
+      "assemblyExactlyEqual": true,
+      "measuredConstantsBlockSha256": "33ecd3f8aa949b08a1b0154850e1f2e19ac904f1988e3367e64de647719be140",
+      "currentConstantsBlockSha256": "33ecd3f8aa949b08a1b0154850e1f2e19ac904f1988e3367e64de647719be140",
+      "constantsExactlyEqual": true
+    },
+    "currentWorktree": {
+      "baseCommit": "39287f3fc59d33444d18046cc0eda2d5de051a00",
+      "observedSourceCommit": "39287f3fc59d33444d18046cc0eda2d5de051a00",
+      "committedSourceHashClaimed": true,
+      "committedFilesMatchRecordedHashes": true,
+      "shadersTsSha256": "79e86a4b8d5a04a647645ddbca012d6e8f4afd31d824b24b1825437e5ba6a0be",
+      "regressionTestSha256": "d9ffa2343f3ccea06abfdb16f3584ea6903b74c4d4f85bd55acb88dcf92db8db",
+      "note": "The recorded implementation and regression test hashes match both the current files and git show at observed source commit 39287f3fc59d33444d18046cc0eda2d5de051a00; no later release commit is asserted."
+    }
+  },
+  "baselineRegression": {
+    "reproduced": true,
+    "originalApplicationLikeMinifiedConstants": [
+      "bindGroup_scene",
+      "bindGroup_model",
+      "bindGroup_material",
+      "moveLightsWorkgroupSize",
+      "clusterCapacity"
+    ],
+    "omittedConstant": "lightRadius",
+    "radiusProbe": "undefined",
+    "commonUndefinedSubstitutionsPerProcessedShader": 3,
+    "additionalClusteringUndefinedSubstitutions": 1,
+    "actualMainBundleMethod": "Isolated evaluation of only the emitted shader raw/constants/preprocessor nodes; no DOM, browser, or GPU API.",
+    "alternativeCausesExcluded": {
+      "rawShaderLiteralBytesChanged": false,
+      "templateEscapeTransformationChanged": false,
+      "constantsBindingNameManglingObserved": false,
+      "moduleInitializationOrderChanged": false
+    }
+  },
+  "radiusProbe": {
+    "placeholder": "${lightRadius}",
+    "originalMeasuredA54Development": "2",
+    "fixedDevelopment": "2",
+    "fixedApplicationLikeMinifiedProduction": "2",
+    "exactlyEqual": true,
+    "realShaderAssertions": [
+      "safeDistance / 2",
+      "f32(2) * f32(2)",
+      "let radius = f32(2);"
+    ]
+  },
+  "applicationLikeParityBoundary": {
+    "input": "src/shaders/shaders.ts plus raw WGSL imports",
+    "exportedValues": [
+      "shaderSources",
+      "hostConstantValues",
+      "internalProbeResults"
+    ],
+    "deliberatelyNotExported": [
+      "constants",
+      "processShaderRaw"
+    ],
+    "directHostConstantReads": [
+      "bindGroup_scene",
+      "bindGroup_model",
+      "bindGroup_material",
+      "moveLightsWorkgroupSize",
+      "clusterCapacity"
+    ],
+    "lightRadiusDirectHostRead": false,
+    "flags": {
+      "configFile": false,
+      "target": "esnext",
+      "minify": "esbuild",
+      "write": false,
+      "rollupInput": "virtual module",
+      "preserveEntrySignatures": "strict",
+      "outputFormat": "es"
+    }
+  },
+  "actualMainBundleAudit": {
+    "asset": "dist/assets/index-BlNgrhCR.js",
+    "utf8Bytes": 373387,
+    "sha256": "a6e81ec307d156f131eb6536a98584ba9d02f5b0305bc44eb6d7425e96bfda03",
+    "embeddedRawWgslLiteralCount": 22,
+    "embeddedRawWgslLiteralsMatchingSource": 22,
+    "inlinePackingShaderMatchesSource": true,
+    "uniqueProcessedShaderCount": 18,
+    "directRawShaderCount": 3,
+    "totalUniqueShaderModuleStringsCompared": 21,
+    "exactMatchesToOriginalDevelopment": 21,
+    "mismatches": 0,
+    "byteDelta": 0,
+    "emittedLightRadius": 2,
+    "unresolvedPlaceholderCount": 0,
+    "undefinedTokenCount": 0,
+    "method": "Independent isolated execution of emitted shader-construction nodes only; no browser or GPU API."
+  },
+  "shaders": [
+    {
+      "name": "naiveVertSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 9382,
+        "sha256": "b8d02c7b4d5a77c8ecfe8bb8db5237ac498109a92d4a82c462d80137075c430f"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 9382,
+        "sha256": "b8d02c7b4d5a77c8ecfe8bb8db5237ac498109a92d4a82c462d80137075c430f"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 9382,
+        "sha256": "b8d02c7b4d5a77c8ecfe8bb8db5237ac498109a92d4a82c462d80137075c430f"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "naiveFragSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 9028,
+        "sha256": "acbf06a9171b51e96a8045b1c923d715fbdcf1cc8296bb8a513e9302e65883ac"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 9028,
+        "sha256": "acbf06a9171b51e96a8045b1c923d715fbdcf1cc8296bb8a513e9302e65883ac"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 9028,
+        "sha256": "acbf06a9171b51e96a8045b1c923d715fbdcf1cc8296bb8a513e9302e65883ac"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "forwardPlusFragSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 13557,
+        "sha256": "245fdcd187e260ad202708ecb1bb42f72fca72331af06534059c56aca634119f"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 13557,
+        "sha256": "245fdcd187e260ad202708ecb1bb42f72fca72331af06534059c56aca634119f"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 13557,
+        "sha256": "245fdcd187e260ad202708ecb1bb42f72fca72331af06534059c56aca634119f"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "forwardPlusPrepassFragSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 8796,
+        "sha256": "752a6f6587e7e4a1a0573a0e48150c9ea027be6ce43c089d87ef4dceb12defc0"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 8796,
+        "sha256": "752a6f6587e7e4a1a0573a0e48150c9ea027be6ce43c089d87ef4dceb12defc0"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 8796,
+        "sha256": "752a6f6587e7e4a1a0573a0e48150c9ea027be6ce43c089d87ef4dceb12defc0"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "forwardPlusMarkerVertSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 8876,
+        "sha256": "8b26655e4a6374328adb1a21d92bd38f3c5371eeb4ff895228e5470e9c125a35"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 8876,
+        "sha256": "8b26655e4a6374328adb1a21d92bd38f3c5371eeb4ff895228e5470e9c125a35"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 8876,
+        "sha256": "8b26655e4a6374328adb1a21d92bd38f3c5371eeb4ff895228e5470e9c125a35"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "forwardPlusMarkerFragSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 8920,
+        "sha256": "587e25debfd8ecf447188cdec16483dba94b4e5fb2334c033489a2dea326eab1"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 8920,
+        "sha256": "587e25debfd8ecf447188cdec16483dba94b4e5fb2334c033489a2dea326eab1"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 8920,
+        "sha256": "587e25debfd8ecf447188cdec16483dba94b4e5fb2334c033489a2dea326eab1"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "clusteredDeferredFragSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 9015,
+        "sha256": "4b5d1383f7933a819bbc7ffc14815e8bb40e077fba108ddee0cf26933f16d9ef"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 9015,
+        "sha256": "4b5d1383f7933a819bbc7ffc14815e8bb40e077fba108ddee0cf26933f16d9ef"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 9015,
+        "sha256": "4b5d1383f7933a819bbc7ffc14815e8bb40e077fba108ddee0cf26933f16d9ef"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "clusteredDeferredCompactFragSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 8797,
+        "sha256": "bec76a2cc73d1743db5358083bdb329c6ba741e8bb7b2e8405c419e8fe9a8cc1"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 8797,
+        "sha256": "bec76a2cc73d1743db5358083bdb329c6ba741e8bb7b2e8405c419e8fe9a8cc1"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 8797,
+        "sha256": "bec76a2cc73d1743db5358083bdb329c6ba741e8bb7b2e8405c419e8fe9a8cc1"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "clusteredDeferredFullscreenVertSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 8669,
+        "sha256": "f0a6c501512742881da93da0126386a2de0e8e421c82de49b9bfcc654a7966f6"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 8669,
+        "sha256": "f0a6c501512742881da93da0126386a2de0e8e421c82de49b9bfcc654a7966f6"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 8669,
+        "sha256": "f0a6c501512742881da93da0126386a2de0e8e421c82de49b9bfcc654a7966f6"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "clusteredDeferredFullscreenFragSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 11794,
+        "sha256": "970b4d22f6ec455f140bc11fbe63b251a127e2f496b4f1500c8218b3366f4b62"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 11794,
+        "sha256": "970b4d22f6ec455f140bc11fbe63b251a127e2f496b4f1500c8218b3366f4b62"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 11794,
+        "sha256": "970b4d22f6ec455f140bc11fbe63b251a127e2f496b4f1500c8218b3366f4b62"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "clusteredDeferredComputeSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 12093,
+        "sha256": "1451896dad75aa6b9bf1e3e56971f0d196f7acf51c14cacf9c68d282225c15ce"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 12093,
+        "sha256": "1451896dad75aa6b9bf1e3e56971f0d196f7acf51c14cacf9c68d282225c15ce"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 12093,
+        "sha256": "1451896dad75aa6b9bf1e3e56971f0d196f7acf51c14cacf9c68d282225c15ce"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "clusteredDeferredCompactComputeSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 12001,
+        "sha256": "235e6c5fd377fccd3f0dd9d1b21fd753f8d39c29079bb0e5d7ee050a95ce8c8b"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 12001,
+        "sha256": "235e6c5fd377fccd3f0dd9d1b21fd753f8d39c29079bb0e5d7ee050a95ce8c8b"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 12001,
+        "sha256": "235e6c5fd377fccd3f0dd9d1b21fd753f8d39c29079bb0e5d7ee050a95ce8c8b"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "clusteredDeferredCompactFullscreenFragSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 11703,
+        "sha256": "626589635f0c89edf0da5af8d9f93a66084f5597b28d579345812cc0cd3d4f51"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 11703,
+        "sha256": "626589635f0c89edf0da5af8d9f93a66084f5597b28d579345812cc0cd3d4f51"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 11703,
+        "sha256": "626589635f0c89edf0da5af8d9f93a66084f5597b28d579345812cc0cd3d4f51"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "moveLightsComputeSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 10820,
+        "sha256": "94d637cf0743a2c965c0c0854926a251d1b7009ee7f2dd839511761afab4797c"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 10820,
+        "sha256": "94d637cf0743a2c965c0c0854926a251d1b7009ee7f2dd839511761afab4797c"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 10820,
+        "sha256": "94d637cf0743a2c965c0c0854926a251d1b7009ee7f2dd839511761afab4797c"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "viewLightsComputeSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 8962,
+        "sha256": "752bb888f203f4aca9de2ef2bc8684943ae1b43b3db7a6c6619647119261474e"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 8962,
+        "sha256": "752bb888f203f4aca9de2ef2bc8684943ae1b43b3db7a6c6619647119261474e"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 8962,
+        "sha256": "752bb888f203f4aca9de2ef2bc8684943ae1b43b3db7a6c6619647119261474e"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "clusterBoundsComputeSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 10941,
+        "sha256": "436901aeaa0e8b144c4bc9822f1b316e16f02aecdd250a3051dc16ca56893e37"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 10941,
+        "sha256": "436901aeaa0e8b144c4bc9822f1b316e16f02aecdd250a3051dc16ca56893e37"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 10941,
+        "sha256": "436901aeaa0e8b144c4bc9822f1b316e16f02aecdd250a3051dc16ca56893e37"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "clusteringComputeSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 10677,
+        "sha256": "8c262dde5392340d8cd7a4308333bcb2d605fe28da3b275fc44b5add51698e8b"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 10677,
+        "sha256": "8c262dde5392340d8cd7a4308333bcb2d605fe28da3b275fc44b5add51698e8b"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 10677,
+        "sha256": "8c262dde5392340d8cd7a4308333bcb2d605fe28da3b275fc44b5add51698e8b"
+      },
+      "exactlyEqual": true
+    },
+    {
+      "name": "maskedClusteringComputeSrc",
+      "originalMeasuredA54Development": {
+        "utf8Bytes": 10677,
+        "sha256": "8c262dde5392340d8cd7a4308333bcb2d605fe28da3b275fc44b5add51698e8b"
+      },
+      "fixedDevelopment": {
+        "utf8Bytes": 10677,
+        "sha256": "8c262dde5392340d8cd7a4308333bcb2d605fe28da3b275fc44b5add51698e8b"
+      },
+      "fixedApplicationLikeMinifiedProduction": {
+        "utf8Bytes": 10677,
+        "sha256": "8c262dde5392340d8cd7a4308333bcb2d605fe28da3b275fc44b5add51698e8b"
+      },
+      "exactlyEqual": true
+    }
+  ],
+  "implementationChangedFiles": [
+    {
+      "path": "src/shaders/shaders.ts",
+      "status": "modified",
+      "sha256": "79e86a4b8d5a04a647645ddbca012d6e8f4afd31d824b24b1825437e5ba6a0be"
+    },
+    {
+      "path": "tests/shader_preprocessing.test.mjs",
+      "status": "added",
+      "sha256": "d9ffa2343f3ccea06abfdb16f3584ea6903b74c4d4f85bd55acb88dcf92db8db"
+    }
+  ],
+  "verification": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "typeScript": "passed",
+    "cpuTests": {
+      "passed": 23,
+      "failed": 0,
+      "existingTests": 22,
+      "addedRegressionTests": 1
+    },
+    "viteBuild": {
+      "passed": true,
+      "transformedModules": 303,
+      "target": "esnext",
+      "minifier": "esbuild",
+      "mainBundle": "dist/assets/index-BlNgrhCR.js"
+    },
+    "installedToolVersions": {
+      "node": "24.17.0",
+      "npm": "11.13.0",
+      "vite": "7.1.9",
+      "esbuild": "0.25.10",
+      "rollup": "4.52.4",
+      "typescript": "5.9.3"
+    },
+    "browserOrGpuWorkloadRunByThisInvestigation": false
+  },
+  "benchmarkImpact": {
+    "measuredRenderingSourceCommit": "a54d4089a82844d70fa322721b8403f026188b0c",
+    "generatedWgslByteChanges": 0,
+    "renderingMathChanged": false,
+    "resourceLayoutChanged": false,
+    "workloadChanged": false,
+    "lightPositionsChanged": false,
+    "cameraChanged": false,
+    "benchmarkProtocolChanged": false,
+    "validationThresholdsChanged": false,
+    "impact": "Only one-time host-side shader interpolation and minified-production correctness changed; timed GPU shader bytes remain identical to the measured A54 development build."
+  },
+  "requiredNativeVerification": [
+    "Serve or deploy the frozen production dist in native Chrome on the Apple GPU.",
+    "Confirm every shader module and pipeline compiles without validation errors.",
+    "Confirm RenderGPU timing is nonzero and all 35 native validation checks pass with zero uncaptured GPU errors."
+  ]
+}
