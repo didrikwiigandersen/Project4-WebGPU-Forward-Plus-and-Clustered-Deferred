@@ -76,6 +76,9 @@ export class NaiveRenderer extends renderer.Renderer {
                     code: shaders.naiveFragSrc,
                 }),
                 entryPoint: 'main',
+                constants: {
+                    optimizedLightMath: settings.optimizedLightMath ? 1 : 0,
+                },
                 targets: [{ format: 'rgba16float' }],
             },
         });

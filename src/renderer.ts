@@ -237,6 +237,8 @@ export abstract class Renderer {
 
     protected readonly postProcessing: PostProcessing;
 
+    public get bloomTexture(): GPUTexture { return this.postProcessing.bloomTexture; }
+
     private outputWidth: number;
     private outputHeight: number;
     private previousFrameTime: number | undefined;

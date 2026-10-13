@@ -6,6 +6,7 @@ export interface FrameMeasurement {
     gpuMs: number | null;
     renderMs: number | null;
     passes: Record<string, number>;
+    intervals?: Record<string, { startNs: string; endNs: string }>;
     metadata: Record<string, unknown>;
 }
 
@@ -91,6 +92,8 @@ class GPUProfiler {
                 const start = ticks[i * 2], end = ticks[i * 2 + 1];
                 if (end < start) { valid = false; break; }
                 slot.measurement.passes[slot.labels[i]] = Number(end - start) / 1e6;
+                slot.measurement.intervals ??= {};
+                slot.measurement.intervals[slot.labels[i]] = { startNs: start.toString(), endNs: end.toString() };
             }
             if (valid && ticks[slot.count - 1] >= ticks[0]) {
                 slot.measurement.gpuMs = Number(ticks[slot.count - 1] - ticks[0]) / 1e6;
@@ -98,11 +101,13 @@ class GPUProfiler {
                 slot.measurement.renderMs = firstRender < 0 ? null : Number(ticks[slot.count - 1] - ticks[firstRender * 2]) / 1e6;
                 this.emit(slot.measurement);
             } else this.rejectedSamples++;
-            slot.readBuffer.unmap();
         }).catch(error => {
             this.rejectedSamples++;
             console.error('GPU timing readback failed', error);
-        }).finally(() => { slot.busy = false; });
+        }).finally(() => {
+            if (slot.readBuffer.mapState === 'mapped') slot.readBuffer.unmap();
+            slot.busy = false;
+        });
     }
 
     endCPU(ms: number) {

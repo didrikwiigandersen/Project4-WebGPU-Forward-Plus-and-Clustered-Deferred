@@ -18,6 +18,7 @@ aside { padding: 17px 13px; background: #f8fafb; overflow-y: auto; } h2 { font-s
 #controls .dg li.title { background: #dbe4ec; color: #23384b; border-bottom: 1px solid #bccdd9; font-weight: 600; }
 #controls .dg .c input[type=text] { color: #306d91; background: #fff; } #controls .dg .c .slider { background: #c6d3df; } #controls .dg .c .slider-fg { background: #306d91; }
 #controls .close-button { display: none; } dl { font-size: 11px; margin: 19px 0; line-height: 1.7; } dl div { display: flex; justify-content: space-between; gap: 10px; } dt { color: #536b7d; } dd { margin: 0; font-variant-numeric: tabular-nums; }
+.inactive-setting { opacity: .48; }
 .tools { border-top: 1px solid #c9d5df; padding-top: 15px; } .tools button { font: inherit; font-size: 12px; text-align: left; cursor: pointer; border: 1px solid #c3d0db; background: #fff; color: #23384b; display: block; width: 100%; margin: 7px 0; padding: 8px 11px; border-radius: 3px; }
 .tools button:hover { background: #e7eff5; border-color: #306d91; } .tools button:disabled { opacity: .55; cursor: wait; } :focus-visible { outline: 2px solid #306d91; outline-offset: 3px; }
 footer { padding: 0 24px; min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 20px; font-size: 11px; color: #536b7d; } footer p { margin: 0; } footer span { white-space: nowrap; }

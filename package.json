@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --open",
-    "build": "vite build && cp -r scenes/ dist/"
+    "build": "npm run typecheck && npm test && vite build && node -e \"require('node:fs').cpSync('scenes', 'dist/scenes', { recursive: true })\"",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "preview": "vite preview"
   },
   "devDependencies": {
     "@types/dat.gui": "^0.7.13",

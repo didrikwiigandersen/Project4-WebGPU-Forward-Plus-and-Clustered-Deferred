@@ -1,6 +1,7 @@
 import { Mat4, mat4, Vec3, vec3 } from "wgpu-matrix";
 import { toRadians } from "../math_util";
 import { device, canvas, fovYDegrees } from "../renderer";
+import { constants as shaderConstants } from "../shaders/shaders";
 import { clusterDimensions } from "../settings";
 
 /**
@@ -79,6 +80,21 @@ export class Camera {
     private viewportWidth = 1;
     private viewportHeight = 1;
     private disposed = false;
+    private inputEnabledValue = true;
+
+    get inputEnabled(): boolean {
+        return this.inputEnabledValue;
+    }
+
+    set inputEnabled(enabled: boolean) {
+        this.inputEnabledValue = enabled;
+        if (!enabled) {
+            this.keys = {};
+            if (document.pointerLockElement === canvas) {
+                document.exitPointerLock();
+            }
+        }
+    }
 
     private readonly keyDownListener = (event: KeyboardEvent) => this.onKeyEvent(event, true);
     private readonly keyUpListener = (event: KeyboardEvent) => this.onKeyEvent(event, false);
@@ -86,12 +102,12 @@ export class Camera {
         this.keys = {};
     };
     private readonly mouseDownListener = (event: MouseEvent) => {
-        if (event.button === 0) {
+        if (this.inputEnabledValue && event.button === 0) {
             void canvas.requestPointerLock();
         }
     };
     private readonly mouseUpListener = (event: MouseEvent) => {
-        if (event.button === 0 && document.pointerLockElement === canvas) {
+        if (this.inputEnabledValue && event.button === 0 && document.pointerLockElement === canvas) {
             document.exitPointerLock();
         }
     };
@@ -101,7 +117,7 @@ export class Camera {
         this.uniformsBuffer = device.createBuffer({
             label: "camera uniforms",
             size: this.uniforms.buffer.byteLength,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
 
         this.updateCameraVectors();
@@ -132,6 +148,13 @@ export class Camera {
 
     private onKeyEvent(event: KeyboardEvent, down: boolean) {
         const key = event.key.toLowerCase();
+        if (!this.inputEnabledValue) {
+            if (!down) {
+                this.keys[key] = false;
+            }
+            return;
+        }
+
         if (Camera.isEditableTarget(event.target)) {
             // A key may have been pressed before an input received focus. Always
             // accept its release so movement cannot remain latched on.
@@ -169,13 +192,13 @@ export class Camera {
     }
 
     private onMouseMove(event: MouseEvent) {
-        if (document.pointerLockElement === canvas) {
+        if (this.inputEnabledValue && document.pointerLockElement === canvas) {
             this.rotateCamera(event.movementX * this.sensitivity, event.movementY * this.sensitivity);
         }
     }
 
     private processInput(deltaTime: number) {
-        if (Camera.isEditableTarget(document.activeElement)) {
+        if (!this.inputEnabledValue || Camera.isEditableTarget(document.activeElement)) {
             return;
         }
 
@@ -235,7 +258,7 @@ export class Camera {
             1 / this.viewportHeight,
         ];
         this.uniforms.depth = [Camera.nearPlane, Camera.farPlane, logScale, logBias];
-        this.uniforms.clusterDims = [clusterX, clusterY, clusterZ, 256];
+        this.uniforms.clusterDims = [clusterX, clusterY, clusterZ, shaderConstants.clusterCapacity];
 
         device.queue.writeBuffer(this.uniformsBuffer, 0, this.uniforms.buffer);
     }

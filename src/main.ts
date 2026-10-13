@@ -14,6 +14,7 @@ import { ProjectApp, Configuration, cameraPresets, saveEvidence } from './app_ap
 import { runValidation } from './validation';
 import { runBenchmark } from './benchmark';
 import { captureDemo, captureScreenshot } from './capture';
+import { readBuffer } from './gpu_io';
 
 function status(message: string) { document.getElementById('status')!.textContent = message; }
 async function start() {
@@ -49,19 +50,22 @@ async function start() {
         applySize();
         if (manual) renderer.stop();
         document.getElementById('modeValue')!.textContent = settings.mode;
-        document.getElementById('gbufferValue')!.textContent = settings.compactGBuffer ? '12 B/pixel' : '32 B/pixel';
+        document.getElementById('gbufferValue')!.textContent = settings.mode === 'clustered deferred' ? (settings.compactGBuffer ? '12 B/pixel' : '32 B/pixel') : 'Not used';
+        updateApplicability();
     }
     const app: ProjectApp = {
-        get renderer() { return renderer; }, camera, lights,
+        get renderer() { return renderer; }, get resolution() { return resolution; }, camera, lights,
         get errors() { return gpuErrors; },
         configure(configuration: Configuration) {
-            const { lightCount, width, height, cameraPreset, ...patch } = configuration;
+            const { lightCount, width, height, resolution: requestedResolution, cameraPreset, ...patch } = configuration;
             Object.assign(settings, patch);
             if (lightCount !== undefined) {
                 lights.numLights = Math.max(0, Math.min(Lights.maxNumLights, lightCount));
                 lights.updateLightSetUniformNumLights();
             }
             if (width !== undefined && height !== undefined) resolution = `${width}x${height}`;
+            else if (requestedResolution !== undefined) resolution = requestedResolution;
+            controls.resolution = resolution;
             if (cameraPreset) {
                 const pose = cameraPresets[cameraPreset];
                 camera.setPose(pose.position, pose.yaw, pose.pitch);
@@ -84,33 +88,59 @@ async function start() {
     const optimization = gui.addFolder('Rendering options');
     optimization.add(settings, 'clusterGrid', ['8x4x16', '16x9x24', '32x18x24']).name('Cluster grid').onChange(recreate);
     optimization.add(settings, 'bundles').name('Render bundles').onChange(recreate);
-    optimization.add(settings, 'depthMode', { Disabled: 'off', 'Prepass only': 'prepass', 'Prepass + culling': 'culling' }).name('Forward+ depth').onChange(recreate);
-    optimization.add(settings, 'deferredCompute').name('Compute lighting').onChange(recreate);
-    optimization.add(settings, 'compactGBuffer').name('Compact G-buffer').onChange(recreate); optimization.open();
+    optimization.add(settings, 'optimizedLightMath').name('Fast light rejection').onChange(recreate);
+    const depthControl = optimization.add(settings, 'depthMode', { Disabled: 'off', 'Prepass only': 'prepass', 'Prepass + culling': 'culling' }).name('Forward+ depth').onChange(recreate);
+    const computeControl = optimization.add(settings, 'deferredCompute').name('Compute lighting').onChange(recreate);
+    const compactControl = optimization.add(settings, 'compactGBuffer').name('Compact G-buffer').onChange(recreate); optimization.open();
     const effect = gui.addFolder('Bloom');
     effect.add(settings, 'bloom').name('Enable bloom');
     effect.add(settings, 'bloomThreshold', 0, 2, 0.05).name('Brightness threshold');
     effect.add(settings, 'bloomStrength', 0, 1, 0.02).name('Strength'); effect.open();
-    gui.add(settings, 'debugView', debugViews).name('Debug view');
+    const debugControl = gui.add(settings, 'debugView', debugViews).name('Debug view');
+    function updateApplicability() {
+        for (const [control, applicable] of [[depthControl, settings.mode === 'forward+'], [computeControl, settings.mode === 'clustered deferred'], [compactControl, settings.mode === 'clustered deferred']] as const) {
+            const row = control.domElement.closest('li') as HTMLElement | null;
+            if (row) { row.inert = !applicable; row.classList.toggle('inactive-setting', !applicable); row.title = applicable ? '' : 'Applies to the other rendering pipeline'; }
+        }
+        const supported = settings.mode === 'naive' ? ['none', 'bloom'] : debugViews.filter(view => view !== 'active-clusters' || (settings.mode === 'forward+' && settings.depthMode === 'culling'));
+        if (!supported.includes(settings.debugView)) settings.debugView = 'none';
+        const select = debugControl.domElement.querySelector('select');
+        if (select) for (const option of select.options) option.disabled = !supported.includes(option.value);
+        debugControl.updateDisplay();
+    }
     const gpuName = String((adapterInfo as GPUAdapterInfo | undefined)?.vendor || 'WebGPU');
     document.getElementById('adapterValue')!.textContent = `${gpuName} GPU`;
     let displayTime = 0;
+    let occupancyTime = 0;
+    let occupancyPending = false;
     profiler.onSample = sample => {
         if (performance.now() - displayTime < 250) return;
         displayTime = performance.now();
         document.getElementById('gpuTime')!.textContent = sample.renderMs === null ? 'Unavailable' : `${sample.renderMs.toFixed(2)} ms`;
         document.getElementById('cpuTime')!.textContent = `${sample.cpuMs.toFixed(2)} ms`;
+        if (!busy && !occupancyPending && performance.now() - occupancyTime > 2000 && settings.mode === 'forward+' && settings.depthMode === 'culling') {
+            occupancyTime = performance.now(); occupancyPending = true;
+            const mask = (renderer as ForwardPlusRenderer).activeMaskBuffer;
+            if (mask) readBuffer(mask).then(data => {
+                const flags = new Uint32Array(data); const active = flags.filter(value => value !== 0).length;
+                document.getElementById('occupancyValue')!.textContent = `${active}/${flags.length} active clusters`;
+            }).catch(() => {}).finally(() => { occupancyPending = false; });
+            else occupancyPending = false;
+        } else if (settings.mode !== 'forward+' || settings.depthMode !== 'culling') document.getElementById('occupancyValue')!.textContent = 'Full clustering';
     };
     let busy = false;
     async function task(name: string, callback: () => Promise<unknown>) {
         if (busy) return;
-        busy = true; document.querySelectorAll<HTMLButtonElement>('.tools button').forEach(b => b.disabled = true);
+        busy = true; gui.domElement.inert = true; camera.inputEnabled = false; camera.keys = {}; document.exitPointerLock(); canvas.style.pointerEvents = 'none';
+        document.querySelectorAll<HTMLButtonElement>('.tools button').forEach(b => b.disabled = true);
         try {
             const result = await callback(); document.getElementById('result')!.textContent = JSON.stringify(result); status(`${name} complete`);
         } catch (error) {
             status(`${name}: ${String(error)}`); document.getElementById('result')!.textContent = JSON.stringify({ error: String(error) }); console.error(error);
         } finally {
-            busy = false; document.querySelectorAll<HTMLButtonElement>('.tools button').forEach(b => b.disabled = false);
+            busy = false; gui.domElement.inert = false; camera.inputEnabled = true; canvas.style.pointerEvents = '';
+            document.querySelectorAll<HTMLButtonElement>('.tools button').forEach(b => b.disabled = false);
+            if (!profiler.supported) for (const id of ['benchmark', 'benchmarkQuick', 'capacityStudy']) (document.getElementById(id) as HTMLButtonElement).disabled = true;
         }
     }
     document.getElementById('validate')!.addEventListener('click', () => task('Validation', () => runValidation(app)));

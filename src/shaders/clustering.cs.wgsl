@@ -47,7 +47,7 @@ fn main(
             let center = viewLightPositions[lightIndex].xyz;
             if (sphereIntersectsAabb(center, radius, bounds)) {
                 let destination = atomicAdd(&hitCount, 1u);
-                if (destination < 256u) {
+                if (destination < ${clusterCapacity}u) {
                     clusterSet.clusters[clusterIndex].indices[destination] = lightIndex;
                 }
             }
@@ -57,7 +57,7 @@ fn main(
 
     if (lane == 0u) {
         let totalHitCount = atomicLoad(&hitCount);
-        clusterSet.clusters[clusterIndex].count = min(totalHitCount, 256u);
-        clusterSet.clusters[clusterIndex].overflow = select(0u, 1u, totalHitCount > 256u);
+        clusterSet.clusters[clusterIndex].count = min(totalHitCount, ${clusterCapacity}u);
+        clusterSet.clusters[clusterIndex].overflow = select(0u, 1u, totalHitCount > ${clusterCapacity}u);
     }
 }

@@ -21,7 +21,7 @@ export class Lights {
     static readonly maxNumLights = 5000;
     static readonly numFloatsPerLight = 8; // vec3f is aligned at 16 byte boundaries
     static readonly lightIntensity = 0.1;
-    static readonly clusterCapacity = 256;
+    static readonly clusterCapacity = shaders.constants.clusterCapacity;
 
     private static readonly transformWorkgroupSize = 128;
     private static readonly boundsWorkgroupSize = 64;
@@ -344,24 +344,61 @@ export class Lights {
             return false;
         }
 
+        const dimensionLabel = dimensions.join("x");
         const nextClusterCount = dimensions[0] * dimensions[1] * dimensions[2];
-        if (!Number.isSafeInteger(nextClusterCount) || nextClusterCount < 1) {
-            throw new Error(`Invalid cluster count for ${dimensions.join("x")}`);
+        const nextClusterBufferByteSize = nextClusterCount * Lights.clusterStride;
+        const nextBoundsBufferByteSize = nextClusterCount * 2 * 4 * Float32Array.BYTES_PER_ELEMENT;
+        const nextActiveMaskBufferByteSize = nextClusterCount * Uint32Array.BYTES_PER_ELEMENT;
+        const supportedClusterBufferLimit = Math.min(
+            device.limits.maxStorageBufferBindingSize,
+            device.limits.maxBufferSize,
+        );
+
+        if (
+            !Number.isSafeInteger(nextClusterCount)
+            || nextClusterCount < 1
+            || !Number.isSafeInteger(nextClusterBufferByteSize)
+            || nextClusterBufferByteSize > supportedClusterBufferLimit
+        ) {
+            throw new Error(
+                `Unsupported cluster grid ${dimensionLabel}: capacity ${Lights.clusterCapacity}, `
+                + `requested ${nextClusterBufferByteSize} bytes for ${nextClusterCount} clusters, `
+                + `but the device supports at most ${supportedClusterBufferLimit} bytes `
+                + `(maxStorageBufferBindingSize=${device.limits.maxStorageBufferBindingSize}, `
+                + `maxBufferSize=${device.limits.maxBufferSize})`,
+            );
+        }
+
+        if (
+            !Number.isSafeInteger(nextBoundsBufferByteSize)
+            || !Number.isSafeInteger(nextActiveMaskBufferByteSize)
+        ) {
+            throw new Error(
+                `Unsupported cluster grid ${dimensionLabel}: derived allocation size is not a safe integer`,
+            );
+        }
+
+        const workgroupLimit = device.limits.maxComputeWorkgroupsPerDimension;
+        if (typeof workgroupLimit === "number" && nextClusterCount > workgroupLimit) {
+            throw new Error(
+                `Unsupported cluster grid ${dimensionLabel}: ${nextClusterCount} clustering workgroups `
+                + `exceed the device limit of ${workgroupLimit}`,
+            );
         }
 
         const nextClusterBuffer = device.createBuffer({
-            label: `Cluster set ${dimensions.join("x")}`,
-            size: nextClusterCount * Lights.clusterStride,
+            label: `Cluster set ${dimensionLabel}`,
+            size: nextClusterBufferByteSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
         const nextBoundsBuffer = device.createBuffer({
-            label: `Cluster view-space bounds ${dimensions.join("x")}`,
-            size: nextClusterCount * 2 * 4 * Float32Array.BYTES_PER_ELEMENT,
+            label: `Cluster view-space bounds ${dimensionLabel}`,
+            size: nextBoundsBufferByteSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
         });
         const nextAllActiveMaskBuffer = device.createBuffer({
-            label: `All-active cluster mask ${dimensions.join("x")}`,
-            size: nextClusterCount * Uint32Array.BYTES_PER_ELEMENT,
+            label: `All-active cluster mask ${dimensionLabel}`,
+            size: nextActiveMaskBufferByteSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
         device.queue.writeBuffer(

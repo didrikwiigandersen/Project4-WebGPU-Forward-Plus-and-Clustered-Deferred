@@ -1,6 +1,7 @@
 export const settings = {
     mode: 'clustered deferred',
     bundles: true,
+    optimizedLightMath: true,
     depthMode: 'culling' as 'off' | 'prepass' | 'culling',
     deferredCompute: true,
     compactGBuffer: true,

@@ -4,12 +4,13 @@
 
 struct ForwardDebugUniforms {
     mode: u32,
-    padding0: u32,
+    cullingEnabled: u32,
     padding1: u32,
     padding2: u32,
 }
 
 @group(${bindGroup_scene}) @binding(3) var<uniform> forwardDebug: ForwardDebugUniforms;
+@group(${bindGroup_scene}) @binding(4) var<storage, read> activeMask: array<u32>;
 
 @group(${bindGroup_material}) @binding(0) var diffuseTex: texture_2d<f32>;
 @group(${bindGroup_material}) @binding(1) var diffuseTexSampler: sampler;
@@ -47,7 +48,8 @@ fn forwardClusterHashColor(clusterIndex: u32) -> vec3f {
 }
 
 fn forwardLightCountHeat(lightCount: u32) -> vec3f {
-    let amount = clamp(f32(lightCount) / 256.0f, 0.0f, 1.0f);
+    let capacity = max(f32(camera.clusterDims.w), 1.0f);
+    let amount = clamp(f32(lightCount) / capacity, 0.0f, 1.0f);
     return vec3f(
         clamp(3.0f * amount - 1.0f, 0.0f, 1.0f),
         clamp(1.5f - abs(3.0f * amount - 1.5f), 0.0f, 1.0f),
@@ -94,13 +96,13 @@ fn main(in: FragmentInput) -> @location(0) vec4f {
             return vec4f(0.0f, 0.0f, 0.0f, 1.0f);
         }
         let safeClusterIndex = min(clusterIndex, clusterCount - 1u);
-        let lightCount = min(clusterSet.clusters[safeClusterIndex].count, 256u);
+        let lightCount = min(clusterSet.clusters[safeClusterIndex].count, camera.clusterDims.w);
         if (debugMode == 2u) {
             return vec4f(forwardLightCountHeat(lightCount), 1.0f);
         }
 
         let overflow = clusterSet.clusters[safeClusterIndex].overflow != 0u;
-        let countAmount = f32(lightCount) / 256.0f;
+        let countAmount = f32(lightCount) / max(f32(camera.clusterDims.w), 1.0f);
         let statusColor = select(
             vec3f(0.0f, max(0.12f, countAmount), 0.0f),
             vec3f(1.0f, countAmount * 0.25f, 0.0f),
@@ -110,9 +112,20 @@ fn main(in: FragmentInput) -> @location(0) vec4f {
     }
 
     if (debugMode == 8u) {
-        // Every surviving fragment represents occupied geometry. In culling
-        // mode the marker therefore set this fragment's cluster active; in the
-        // other depth modes this deterministic color shows the same occupancy.
+        var considered = true;
+        if (forwardDebug.cullingEnabled != 0u) {
+            let maskCount = arrayLength(&activeMask);
+            considered = false;
+            if (clusterIndex < maskCount) {
+                considered = activeMask[clusterIndex] != 0u;
+            }
+        }
+        if (!considered) {
+            return vec4f(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+
+        // Off/prepass modes consider every visible cluster. Culling mode reads
+        // the marker's actual flag and only hashes clusters marked active.
         let activeColor = clamp(
             forwardClusterHashColor(clusterIndex) * 0.35f + vec3f(0.05f, 0.60f, 0.05f),
             vec3f(0.0f),
@@ -127,7 +140,7 @@ fn main(in: FragmentInput) -> @location(0) vec4f {
         &clusterSet,
         clusterIndex,
         in.pos,
-        safeNormalize(in.nor)
+        in.nor
     );
     let color = clamp(diffuseColor.rgb * lightContribution, vec3f(0.0f), vec3f(65504.0f));
     return vec4f(color, 1.0f);

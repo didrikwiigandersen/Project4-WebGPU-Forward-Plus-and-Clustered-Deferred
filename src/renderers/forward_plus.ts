@@ -26,6 +26,7 @@ export class ForwardPlusRenderer extends renderer.Renderer {
     readonly sceneUniformsBindGroupLayout: GPUBindGroupLayout;
     private sceneUniformsBindGroup!: GPUBindGroup;
     private boundClustersBuffer?: GPUBuffer;
+    private boundActiveMaskBuffer?: GPUBuffer;
 
     private readonly prepassSceneBindGroupLayout: GPUBindGroupLayout;
     private readonly prepassSceneBindGroup: GPUBindGroup;
@@ -85,6 +86,11 @@ export class ForwardPlusRenderer extends renderer.Renderer {
                     binding: 3,
                     visibility: GPUShaderStage.FRAGMENT,
                     buffer: { type: 'uniform', minBindingSize: 16 },
+                },
+                {
+                    binding: 4,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: { type: 'read-only-storage' },
                 },
             ],
         });
@@ -240,6 +246,9 @@ export class ForwardPlusRenderer extends renderer.Renderer {
             fragment: {
                 module: fragmentModule,
                 entryPoint: 'main',
+                constants: {
+                    optimizedLightMath: settings.optimizedLightMath ? 1 : 0,
+                },
                 targets: [{ format: ForwardPlusRenderer.outputFormat }],
             },
             depthStencil: {
@@ -250,10 +259,13 @@ export class ForwardPlusRenderer extends renderer.Renderer {
         });
     }
 
-    /** Rebuild bindings and bundles whenever Lights replaces its cluster set. */
+    /** Rebuild bindings and bundles whenever either grid-dependent buffer changes. */
     private ensureSceneBindGroup(): void {
         const clustersBuffer = this.lights.clustersBuffer;
-        if (clustersBuffer === this.boundClustersBuffer) return;
+        if (
+            clustersBuffer === this.boundClustersBuffer
+            && this.activeMaskBuffer === this.boundActiveMaskBuffer
+        ) return;
 
         this.sceneUniformsBindGroup = renderer.device.createBindGroup({
             label: 'Forward+ scene bind group',
@@ -275,9 +287,14 @@ export class ForwardPlusRenderer extends renderer.Renderer {
                     binding: 3,
                     resource: { buffer: this.debugUniformBuffer },
                 },
+                {
+                    binding: 4,
+                    resource: { buffer: this.activeMaskBuffer },
+                },
             ],
         });
         this.boundClustersBuffer = clustersBuffer;
+        this.boundActiveMaskBuffer = this.activeMaskBuffer;
         this.mainBundle = undefined;
         this.mainPrepassBundle = undefined;
     }
@@ -302,6 +319,7 @@ export class ForwardPlusRenderer extends renderer.Renderer {
     private updateDebugUniform(): void {
         this.debugUniformData.fill(0);
         this.debugUniformData[0] = debugModeByName[settings.debugView] ?? 0;
+        this.debugUniformData[1] = settings.depthMode === 'culling' ? 1 : 0;
         renderer.device.queue.writeBuffer(this.debugUniformBuffer, 0, this.debugUniformData);
     }
 
@@ -486,5 +504,7 @@ export class ForwardPlusRenderer extends renderer.Renderer {
         this.maskTexture?.destroy();
         this.activeMaskBuffer?.destroy();
         this.debugUniformBuffer.destroy();
+        this.boundClustersBuffer = undefined;
+        this.boundActiveMaskBuffer = undefined;
     }
 }

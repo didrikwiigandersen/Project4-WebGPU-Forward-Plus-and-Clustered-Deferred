@@ -1,5 +1,7 @@
 requires unrestricted_pointer_parameters;
 
+override optimizedLightMath: bool = true;
+
 // CHECKITOUT: code that you add here will be prepended to all shaders
 
 struct Light {
@@ -15,7 +17,7 @@ struct LightSet {
 struct ClusterRecord {
     count: u32,
     overflow: u32,
-    indices: array<u32, 256>,
+    indices: array<u32, ${clusterCapacity}>,
 }
 
 struct ClusterSet {
@@ -49,6 +51,27 @@ fn rangeAttenuation(distance: f32) -> f32 {
 }
 
 fn calculateLightContrib(light: Light, posWorld: vec3f, nor: vec3f) -> vec3f {
+    if (optimizedLightMath) {
+        let vecToLight = light.pos - posWorld;
+        let rawDistanceSquared = dot(vecToLight, vecToLight);
+        let radiusSquared = f32(${lightRadius}) * f32(${lightRadius});
+        if (rawDistanceSquared >= radiusSquared) {
+            return vec3f(0.0);
+        }
+
+        let distanceSquared = max(rawDistanceSquared, 1e-8);
+        let directionToLight = vecToLight * inverseSqrt(distanceSquared);
+        let normalizedDistanceSquared = distanceSquared / radiusSquared;
+        let rangeFalloff = max(
+            0.0,
+            1.0 - normalizedDistanceSquared * normalizedDistanceSquared,
+        );
+        let attenuation = min(rangeFalloff / distanceSquared, maxHdrValue);
+        let lambert = max(dot(nor, directionToLight), 0.0);
+        let contribution = max(light.color, vec3f(0.0)) * lambert * attenuation;
+        return clamp(contribution, vec3f(0.0), vec3f(maxHdrValue));
+    }
+
     let vecToLight = light.pos - posWorld;
     let distanceSquared = max(dot(vecToLight, vecToLight), 1e-8);
     let distToLight = sqrt(distanceSquared);
@@ -65,11 +88,15 @@ fn shadeAllLights(
 ) -> vec3f {
     let availableLights = arrayLength(&(*lightSet).lights);
     let lightCount = min((*lightSet).numLights, availableLights);
+    var lightNormal = normal;
+    if (optimizedLightMath) {
+        lightNormal = safeNormalize(normal);
+    }
     var illumination = vec3f(0.0);
 
     for (var lightIndex = 0u; lightIndex < lightCount; lightIndex++) {
         illumination = min(
-            illumination + calculateLightContrib((*lightSet).lights[lightIndex], posWorld, normal),
+            illumination + calculateLightContrib((*lightSet).lights[lightIndex], posWorld, lightNormal),
             vec3f(maxHdrValue),
         );
     }
@@ -98,14 +125,18 @@ fn shadeCluster(
 
     let availableLights = arrayLength(&(*lightSet).lights);
     let lightCount = min((*lightSet).numLights, availableLights);
-    let clusterLightCount = min((*cluster).count, 256u);
+    let clusterLightCount = min((*cluster).count, ${clusterCapacity}u);
+    var lightNormal = normal;
+    if (optimizedLightMath) {
+        lightNormal = safeNormalize(normal);
+    }
     var illumination = vec3f(0.0);
 
     for (var entryIndex = 0u; entryIndex < clusterLightCount; entryIndex++) {
         let lightIndex = (*cluster).indices[entryIndex];
         if (lightIndex < lightCount) {
             illumination = min(
-                illumination + calculateLightContrib((*lightSet).lights[lightIndex], posWorld, normal),
+                illumination + calculateLightContrib((*lightSet).lights[lightIndex], posWorld, lightNormal),
                 vec3f(maxHdrValue),
             );
         }

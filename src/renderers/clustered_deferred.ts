@@ -136,6 +136,7 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
                         code: source,
                     }),
                     entryPoint: 'main',
+                    constants: { optimizedLightMath: settings.optimizedLightMath ? 1 : 0 },
                 },
             });
         } else {
@@ -162,6 +163,7 @@ export class ClusteredDeferredRenderer extends renderer.Renderer {
                     }),
                     entryPoint: 'main',
                     targets: [{ format: 'rgba16float' }],
+                    constants: { optimizedLightMath: settings.optimizedLightMath ? 1 : 0 },
                 },
             });
         }
