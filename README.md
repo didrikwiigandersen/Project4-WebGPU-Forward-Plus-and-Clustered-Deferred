@@ -11,20 +11,11 @@
 *Native 1280×720 capture: 5,000 frozen point lights, compact compute deferred lighting, render bundles, optimized
 light math, and compute bloom in the Atrium view.*
 
-An instrumented WebGPU renderer for studying how light count, screen resolution, cluster granularity, overdraw, and
-G-buffer representation shift work between the CPU, geometry processing, light assignment, and per-pixel shading.
-It keeps a naive forward path as a reference, shares one conservative clustering implementation between Forward+
-and deferred rendering, and exposes optimizations independently so their costs can be measured rather than hidden
-inside one preset.
-
 ## Demo
 
 - **[Open the live build](https://didrikwiigandersen.github.io/Project4-WebGPU-Forward-Plus-and-Clustered-Deferred/)**
 - **Captioned 50-second native feature tour:** [MP4](docs/media/feature-tour.mp4) ·
   [WebM alternative](docs/media/feature-tour.webm)
-
-WebGPU requires a current compatible browser and a secure context (HTTPS or localhost). The video remains
-available for systems without WebGPU.
 
 ## What is implemented
 
