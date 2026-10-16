@@ -1,6 +1,10 @@
 # WebGPU Forward+ and Clustered Deferred Shading
 
-[Didrik Wiig-Andersen](https://github.com/didrikwiigandersen) · CIS 5650: GPU Programming and Architecture
+## University of Pennsylvania, CIS 5650: GPU Programming and Architecture, Project 4
+
+- [Didrik Wiig-Andersen](https://github.com/didrikwiigandersen)
+- Tested on: **Google Chrome** (captured user-agent: **154.0.0.0**; installed version: **155.0.8059.40**) on
+  macOS 27.0.1, Apple M5 (10-core CPU, 10-core GPU), 24 GB unified memory (Mac17,2).
 
 [![Sponza with 5,000 point lights, compact compute deferred lighting, and compute bloom](docs/media/sponza.png)](https://didrikwiigandersen.github.io/Project4-WebGPU-Forward-Plus-and-Clustered-Deferred/)
 
