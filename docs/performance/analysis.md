@@ -520,10 +520,16 @@ Within the capacity-1024 build, optimized light math recorded a lower pooled med
 ### Compute deferred lighting
 
 The compute path replaces the baseline fullscreen lighting draw while retaining the baseline MRT G-buffer for the
-isolated pair. Both evaluate the same cluster lists; compute dispatches 8×8-thread workgroups and writes `rgba16float`
-storage, whereas fullscreen lighting uses raster coverage and a color attachment. Resolution controls invocation
-count and lights control per-pixel list work. The paired full-report rows above show the measured best, worst, and repeat-range behavior. Possible next
-steps include workgroup-cooperative light-list staging and occupancy/tile-size tuning, subject to measurement.
+isolated pair. Both shade the same covered pixels from the same cluster lists; compute dispatches 8×8-thread
+workgroups and performs `rgba16float` storage writes, whereas fullscreen lighting uses raster coverage and a color
+attachment. Resolution controls invocation count and lights control per-pixel list work.
+A plausible best case is expensive per-pixel lighting that amortizes fixed dispatch costs or benefits from compute
+scheduling/cache locality; a plausible worst case is cheap lighting where dispatch/storage-write overhead or raster
+attachment/cache behavior dominates. Those mechanisms are hypotheses, not exclusive pass-cost measurements or
+causal claims. The paired full-report rows above show the measured best, worst, and repeat-range behavior. Complete
+spans cannot isolate scheduling, cache, dispatch, or attachment/store behavior, so the results establish neither a
+unique compute benefit nor its cause. Workgroup-cooperative list staging and tile-size tuning remain proposed future
+experiments, not properties of the measured implementation.
 
 ### Compact G-buffer
 
@@ -532,8 +538,13 @@ B/pixel: 16 B position, 8 B normal, 4 B albedo, and 4 B depth. Compact storage i
 4 B depth, or 12 B/pixel—a 62.5% logical reduction. It packs RGBA8 albedo and octahedral SNORM16 normals, then
 reconstructs world position from WebGPU 0..1 depth and inverse view-projection with the Y convention handled in the
 shader. This is format-level storage, not proof of proportional driver allocation or bandwidth savings. Precision,
-packing ALU, resolution, and cache behavior compete; future work could test alternative normal encodings and use
-hardware counters where available.
+packing/normal-decoding ALU, world-position reconstruction, resolution, and cache behavior compete. A plausible best
+case is bandwidth-limited, high-resolution, cheap lighting where G-buffer traffic is prominent; a plausible worst
+case is ALU-limited or precision-sensitive work where encode/decode/reconstruction cost or error matters, and
+smaller storage does not shorten the cluster light lists. The paired full-report rows above show the measured best,
+worst, and repeat-range behavior. Complete spans cannot isolate actual bandwidth from packing/reconstruction ALU or
+precision effects, so these observations do not prove a bandwidth cause or a universal normal-accuracy ordering.
+Future work could test alternative encodings and use hardware counters where available.
 
 ### Optimized point-light math
 
@@ -542,8 +553,13 @@ The benchmark flag selects between the retained original helper and an optimized
 `(1 - (d²/r²)²) / d²`, and hoists surface-normal normalization outside the light loop. The full plan isolates that
 switch for ordinary Forward+ and compact compute deferred at low/high light counts across both cameras and
 resolutions; the capacity-1024 plan repeats it across all three grids and both depth modes. Native parity tests
-assess `f32` rounding. Only paired complete `renderMs` spans judge performance, without claiming which individual
-transformation caused a measured delta.
+assess `f32` rounding. Only paired complete `renderMs` spans judge performance. The expected best case has many
+conservative AABB candidates outside the shaded pixel's light spheres, so early rejection avoids expensive work. The
+worst case has mostly inside-sphere candidates, few lights, or savings too small relative to check/branch overhead;
+attenuation algebra and normalization hoisting may still help, so this is not a categorical regression case. The
+reported high-light improvements reveal neither rejection rate nor which bundled transformation caused the gain. A
+future paired study should split the composite flag and collect rejection rates by passive diagnostics outside timed
+frames while retaining parity checks.
 
 ### Render bundles
 
@@ -568,11 +584,18 @@ or a cheaper alpha-aware depth material path are candidates for further study.
 After the prepass, a six-vertex fullscreen quad samples depth without a depth attachment and atomically marks active
 flags while writing an `r8unorm` scratch attachment. The mask is cleared every frame. Clustering still dispatches one
 64-thread workgroup per cluster; inactive workgroups skip sphere/AABB intersections but are not compacted away. The
-best case has a low active-cluster fraction and many lights; the worst adds clear/mark/scratch traffic while most
-clusters remain active or light counts are small. Stream compaction could reduce dispatch work, but its scan,
-indirect-dispatch, and synchronization cost must first be amortized. The debug view colors visible surface fragments
-by occupied cluster ID using the actual active-mask binding; it does not display empty cluster volume or the raw
-binary occupancy mask. Measured active fractions come from passive readback instead.
+capacity/debug evidence shows low active fractions in its own configurations, but those case families are not
+matched timing pairs with the full prepass-versus-culling study. The paired full-report rows above show the measured
+best, worst, and repeat-range behavior. Passive occupancy and paired total spans measure different quantities;
+neither is an exclusive pass timing. A plausible mechanism is that skipped intersections help when occupancy is low
+and light count is high; the expected worst case has most clusters active or few lights, when full-grid dispatch,
+mask-clear work, marking atomics, scratch traffic, scheduling overhead, or other stages offset the savings. This is
+a hypothesis, not a measured exclusive pass cost. Stream
+compaction could reduce dispatch work, but its scan, indirect-dispatch, and synchronization cost must first be
+amortized.
+Available only in Forward+ culling mode, the debug view colors visible surface fragments by occupied cluster ID; it
+uses the actual active-mask binding and does not show empty cluster volume, the raw binary mask, or timing. Occupancy
+fractions come from passive readback, not debug colors.
 
 ### Compute Gaussian bloom
 

@@ -13,7 +13,7 @@ light math, and compute bloom in the Atrium view.*
 
 ## Demo
 
-- **[Open the live build](https://didrikwiigandersen.github.io/Project4-WebGPU-Forward-Plus-and-Clustered-Deferred/)**
+- **[Open the live build (GitHub Pages)](https://didrikwiigandersen.github.io/Project4-WebGPU-Forward-Plus-and-Clustered-Deferred/)**
 - **Captioned 50-second native feature tour:** [MP4](docs/media/feature-tour.mp4) ·
   [WebM alternative](docs/media/feature-tour.webm)
 
@@ -232,6 +232,8 @@ p95 values from 900 samples per case, and reports the range of the three repeat 
 confidence intervals.
 
 ## Build and verify
+
+Requires Node.js 22.12 or newer and npm.
 
 ```bash
 npm install
